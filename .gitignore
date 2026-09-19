@@ -1,0 +1,18 @@
+# Disposable screen captures from analysis sessions - never commit
+captures/
+
+# Narrator speech history - a working record, regenerated every run
+logs/
+
+# Large third-party toolchains cloned/extracted into tools/
+tools/ghidra_12.1.2_PUBLIC/
+tools/ghidra_input/
+tools/ghidra_project/
+tools/minhook/
+tools/tolk/
+
+# Session-only scan state
+tools/scan/state/
+
+# NVDA Controller Client - user-supplied, NV Access's to distribute, not ours
+lib/

@@ -1,0 +1,6 @@
+# This repo gets used from both Windows and WSL. Normalise line endings in the repo to LF
+# so the same files do not show up as whole-file diffs depending on which side committed.
+* text=auto eol=lf
+
+# Windows-only launcher: needs CRLF to run reliably from cmd.exe
+*.cmd text eol=crlf
