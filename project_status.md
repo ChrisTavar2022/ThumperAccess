@@ -190,6 +190,16 @@ fully exhausted (4 independent techniques, all negative) - see
 `notes/session-2026-07-13-aggressive-analysis.md`. No further static scans planned;
 the dynamic x64dbg session is the sole next step for Phase 1.
 
+## Where we stopped (2026-09-20)
+
+The user is playing the game with the narrator to find what is actually broken in real
+use, rather than working down this list in order. **Pick up from whatever they report.**
+
+The pip-row job (exact level detection, item 1a below) was started and stopped before any
+code was written - no half-finished changes are in the tree. The measurements needed for
+it are already recorded in `notes/session-2026-09-20-leaderboards.md`, so it can start
+from those rather than re-probing the screen.
+
 ## Next Steps
 
 1. ~~Level select screen~~ - done, see above (counts still wrong).

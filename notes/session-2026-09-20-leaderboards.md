@@ -147,6 +147,29 @@ is to stop depending on OCR of the title for this: the level-selector pip row un
 title encodes the level positionally (which pip is filled), and counting pips would be
 exact, cheap, and immune to the OCR flakiness entirely.
 
+### Measurements for that pip-row job (taken 2026-09-20, do not re-derive)
+
+Probed on the live Leaderboards screen at **1920x1080**, counting near-white pixels per
+row between the title and the mode line:
+
+- Title glyphs end at **y≈145**.
+- **Pip row: y≈172-194** (fractions **0.159-0.180** of screen height). A band of
+  0.155-0.185 captures it with margin. Bright counts run ~170 through the middle of the
+  band and spike to ~400-440 at y=173-176 and y=190-193, which are the pips' rounded-rect
+  top and bottom borders.
+- Mode line (`GLOBAL RANKING`) starts at **y≈226**, well clear of the pips.
+
+The approach should mirror `Get-SliderValue`: column-projection `Blobs` over that band,
+then test each blob's centre pixel for filled-vs-hollow. Two differences from the volume
+slider to watch for:
+
+- The flanking arrows are **not always both present** - there is no left arrow on level 1
+  and no right arrow on level 9 - so the slider's "trim the first and last blob
+  positionally" rule does not carry over. Filter by uniform pip width instead and treat
+  the odd-width outliers as arrows.
+- There are always exactly **9 levels**, so a blob count that does not resolve to 9 pips
+  is a bad read: fall back to the existing title OCR rather than announcing a guess.
+
 ## Known gaps / next leads
 
 1. **The gold rank badge is not read.** Each row ends with a small gold badge (an `S` in
