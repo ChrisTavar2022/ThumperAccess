@@ -101,24 +101,139 @@ public class ThumperVision {
         return new int[] { bestTop, bestBot };
     }
 
+    // The Leaderboards screen is the one place that does NOT use the red fill bar. Its
+    // selected row is marked with a thin GOLD outline - a rounded rectangle border - so
+    // FindBar sees nothing there. Measured border colour on a real capture: peak
+    // ~(129,109,0), i.e. R and G both raised and close together with B at zero, which is
+    // what separates it from the red bar (R >> G there).
+    static bool IsGold(byte r, byte g, byte b) {
+        return r > 70 && g > 55 && b < 50 && Math.Abs(r - g) < 45 && r >= g;
+    }
+
+    // An outline is two thin edges with ordinary row content between them, not one solid
+    // block, so this looks for a pair of thin gold bands a row-height apart rather than
+    // the longest run. Returns {top, bot} strictly INSIDE the border, or {-1,-1}.
+    public static int[] FindGoldBox(Bitmap bmp) {
+        int stride;
+        byte[] buf = Pixels(bmp, out stride);
+        int w = bmp.Width, h = bmp.Height;
+
+        bool[] goldRow = new bool[h];
+        for (int row = 0; row < h; row++) {
+            int gold = 0, total = 0, baseIdx = row * stride;
+            for (int col = 0; col < w; col += 4) {
+                int i = baseIdx + col * 4;
+                byte b = buf[i], g = buf[i + 1], r = buf[i + 2];
+                total++;
+                if (IsGold(r, g, b)) gold++;
+            }
+            goldRow[row] = total > 0 && ((double)gold / total) > 0.25;
+        }
+
+        System.Collections.Generic.List<int[]> runs = new System.Collections.Generic.List<int[]>();
+        int cur = -1;
+        for (int row = 0; row < h; row++) {
+            if (goldRow[row]) { if (cur < 0) cur = row; }
+            else if (cur >= 0) { runs.Add(new int[] { cur, row - 1 }); cur = -1; }
+        }
+        if (cur >= 0) runs.Add(new int[] { cur, h - 1 });
+
+        for (int i = 0; i + 1 < runs.Count; i++) {
+            int topLen = runs[i][1] - runs[i][0] + 1;
+            int contentTop = runs[i][1] + 1;
+            int contentBot = runs[i + 1][0] - 1;
+            int gap = contentBot - contentTop + 1;
+            double unit = h * 0.001;
+            if (topLen > Math.Max(2, (int)(unit * 10))) continue;
+            if (gap <= (int)(unit * 15) || gap >= (int)(unit * 60)) continue;
+
+            // A real row has text in it. Without this check a gold-ish flash during
+            // gameplay could pass as a selection box and break the narrator's silence.
+            int bright = 0;
+            for (int row = contentTop; row <= contentBot; row += 2) {
+                int baseIdx = row * stride;
+                for (int col = 0; col < w; col += 4) {
+                    int k = baseIdx + col * 4;
+                    byte b = buf[k], g = buf[k + 1], r = buf[k + 2];
+                    if (r > 180 && g > 150 && b > 150) bright++;
+                }
+            }
+            if (bright < 20) continue;
+
+            return new int[] { contentTop, contentBot };
+        }
+        return new int[] { -1, -1 };
+    }
+
+    // Widest run of empty columns in a row band, used to split leaderboard rows into
+    // "rank + name" and "score". Get-RowSplit is not reused here: its arrow-trimming
+    // branch would fire on a score whose digits happen to segment into four-plus blobs
+    // and chop the first and last digit off the number.
+    public static int SplitColumn(Bitmap bmp, int top, int bot) {
+        int stride;
+        byte[] buf = Pixels(bmp, out stride);
+        int w = bmp.Width;
+        bool[] colHas = new bool[w];
+        for (int col = 0; col < w; col++) {
+            int count = 0;
+            for (int row = top; row <= bot; row++) {
+                int i = row * stride + col * 4;
+                byte b = buf[i], g = buf[i + 1], r = buf[i + 2];
+                // Near-white only. A looser threshold also catches Thumper's animated
+                // background beams, which sweep through the gap between name and score
+                // and split it into short runs - at which point the empty screen margin
+                // becomes the widest gap and the rank number lands on the score side.
+                if (r > 180 && g > 150 && b > 150) count++;
+            }
+            colHas[col] = count >= 1;
+        }
+        int bestLen = 0, bestMid = w / 2, runStart = -1;
+        for (int col = 0; col < w; col++) {
+            if (!colHas[col]) { if (runStart < 0) runStart = col; }
+            else if (runStart >= 0) {
+                // Skip the run that starts at the left screen edge: that is the margin
+                // outside the list, not the gap inside a row.
+                if (runStart > 0) {
+                    int len = col - runStart;
+                    if (len > bestLen) { bestLen = len; bestMid = (runStart + col) / 2; }
+                }
+                runStart = -1;
+            }
+        }
+        // A trailing run reaching the right edge is the other margin, so it is ignored too.
+        return bestMid;
+    }
+
     // Coarse shape signature of the text inside the given rows: near-white pixel counts
     // bucketed across 32 columns. An exact hash is useless here - Thumper animates its
     // background and the bar shimmers, so anti-aliased glyph edges flip above and below
     // any brightness threshold every frame. Bucketed counts compared with a tolerance
     // absorb that jitter while still changing sharply when the actual word changes.
     public static int[] TextProfile(Bitmap bmp, int top, int bot) {
+        return TextProfile(bmp, top, bot, 0, bmp.Width);
+    }
+
+    // xStart/xEnd narrow the profile to part of the width. This matters for the screen
+    // title: spread across the whole screen, a one-digit change ("LEVEL 2" -> "LEVEL 3",
+    // two glyphs with near-identical ink) moves far too few pixels in any one bucket to
+    // clear the change threshold, and the level change goes unannounced. Profiling just
+    // the title's own span makes the digit a large share of a bucket instead.
+    public static int[] TextProfile(Bitmap bmp, int top, int bot, int xStart, int xEnd) {
         int stride;
         byte[] buf = Pixels(bmp, out stride);
         int buckets = 32;
         int[] prof = new int[buckets];
-        int w = bmp.Width;
+        int x0 = xStart < 0 ? 0 : xStart;
+        int x1 = (xEnd > 0 && xEnd <= bmp.Width) ? xEnd : bmp.Width;
+        if (x1 <= x0) { x0 = 0; x1 = bmp.Width; }
+        int span = x1 - x0;
         for (int row = top; row <= bot; row += 2) {
             int baseIdx = row * stride;
-            for (int col = 0; col < w; col += 2) {
+            for (int col = x0; col < x1; col += 2) {
                 int i = baseIdx + col * 4;
                 byte b = buf[i], g = buf[i + 1], r = buf[i + 2];
                 if (r > 180 && g > 150 && b > 150) {
-                    int bucket = (col * buckets) / w;
+                    int bucket = ((col - x0) * buckets) / span;
                     if (bucket >= buckets) bucket = buckets - 1;
                     prof[bucket]++;
                 }
@@ -376,6 +491,73 @@ function Get-TitleBox([System.Drawing.Bitmap]$shot) {
         Left   = [math]::Max(0, $first - 20)
         Right  = [math]::Min($shot.Width, $lastStart + $lastWidth + 20)
     }
+}
+
+# OCR a horizontal band given as fractions of screen height, cropped to the glyphs it
+# actually contains. The crop matters: small text left sitting on a wide blank canvas
+# comes back empty from Windows OCR, which is the same trap Get-TitleBox works around.
+function Read-BandText([System.Drawing.Bitmap]$shot, [double]$topFrac, [double]$botFrac) {
+    $t = [int]($shot.Height * $topFrac)
+    $b = [int]($shot.Height * $botFrac)
+    if ($b -le $t) { return "" }
+    $r = [ThumperVision]::Blobs($shot, $t, $b, 0)
+    $n = $r[0]
+    if ($n -lt 1) { return "" }
+    $first = $r[1]
+    $lastStart = $r[1 + ($n - 1) * 3]
+    $lastWidth = $r[1 + ($n - 1) * 3 + 1]
+    $left = [math]::Max(0, $first - 20)
+    $right = [math]::Min($shot.Width, $lastStart + $lastWidth + 20)
+    return Read-Strip $shot $t $b $left $right
+}
+
+# A leaderboard row is "rank + name" on the left and a score on the right. The row's own
+# rank number IS its position, and the list runs to hundreds of entries, so this
+# deliberately has no "item N of M" - unlike every other screen.
+function Read-LeaderboardRow([System.Drawing.Bitmap]$shot, [int]$top, [int]$bot) {
+    $split = [ThumperVision]::SplitColumn($shot, $top, $bot)
+    $left = Read-Strip $shot $top $bot 0 $split
+    $right = Read-Strip $shot $top $bot $split 0
+
+    $rank = ""
+    $name = ""
+    $scoreText = $right
+    if ($left -match '^\s*(\d+)\s+(.+)$') {
+        $rank = $Matches[1]
+        $name = $Matches[2].Trim()
+    } else {
+        # The split can still misfire on a bad frame, and then the whole row lands on one
+        # side. Parse it as a single string rather than letting the rank digits glue
+        # themselves onto the score and announce "3,280,000" for "rank 3 ... 280,000".
+        $whole = ("$left $right").Trim()
+        if ($whole -match '^(\d+)\s+(.+?)\s+([\d][\d.,]*)$') {
+            $rank = $Matches[1]
+            $name = $Matches[2].Trim()
+            $scoreText = $Matches[3]
+        } else {
+            return ""
+        }
+    }
+
+    # The thousands separator reads back as "," on one frame and "." on the next. Spoken
+    # raw, "653.050" turns into "point zero five zero", so rebuild the number from its
+    # digits instead of trusting the separator.
+    $score = ""
+    $digits = ($scoreText -replace '[^\d]', '')
+    if ($digits -and $digits.Length -le 18) {
+        $score = ([int64]$digits).ToString("N0", [System.Globalization.CultureInfo]::InvariantCulture)
+    }
+
+    # Every row here has both a name and a score, so a read missing either is a
+    # half-rendered frame rather than a real row. Announcing it gives "rank 1, NAME" with
+    # no score, corrected a second later - better to say nothing and read again.
+    if (-not $name -or -not $score) { return "" }
+
+    $parts = @()
+    if ($rank) { $parts += "rank $rank" }
+    $parts += $name
+    $parts += $score
+    return ($parts -join ", ")
 }
 
 # Settings rows are laid out as label on the left, value on the right, separated by a wide
@@ -650,12 +832,20 @@ $lastTitleProfile = $null
 $titleAt = [DateTime]::MinValue
 $titlePending = $false
 $currentLevel = 0
+$lastBoardKey = ""
+$titleTries = 0
 $f8Was = $false
 
 while ($true) {
     $shot = $null
     try {
         $shot = [ThumperVision]::Grab($vs.X, $vs.Y, $vs.Width, $vs.Height)
+
+        # Which selection widget is on screen decides everything below. Only look for the
+        # Leaderboards gold outline when there is no red bar - every other screen has one,
+        # so this costs nothing on the common path.
+        $bar = [ThumperVision]::FindBar($shot)
+        $gold = if ($bar[0] -lt 0) { [ThumperVision]::FindGoldBox($shot) } else { @(-1, -1) }
 
         # --- level select: announce which level, plus its score and ranks ---
         # The selection bar here sits on RESUME/RESTART/PRACTICE, so the bar logic alone
@@ -664,7 +854,10 @@ while ($true) {
         # renders those pips as dashes ("LEVELL-") and loses the digit.
         $titleTop = [int]($shot.Height * 0.03)
         $titleBot = [int]($shot.Height * 0.14)
-        $titleProf = [ThumperVision]::TextProfile($shot, $titleTop, $titleBot)
+        # Profile only the middle of the screen, where the centred title actually sits.
+        # Across the full width a single changed digit does not move any bucket enough.
+        $titleProf = [ThumperVision]::TextProfile($shot, $titleTop, $titleBot,
+                                                  [int]($shot.Width * 0.30), [int]($shot.Width * 0.70))
         $titleChanged = $false
         if (-not $lastTitleProfile) {
             $titleChanged = $true
@@ -679,7 +872,10 @@ while ($true) {
         }
         $lastTitleProfile = $titleProf
 
-        if ($titleChanged) { $titleAt = Get-Date; $titlePending = $true }
+        # A fresh title change gets a fresh retry budget. Without the reset, failed reads
+        # on one level eat the allowance for the next, and paging quickly leaves later
+        # levels unannounced.
+        if ($titleChanged) { $titleAt = Get-Date; $titlePending = $true; $titleTries = 0 }
         if ($titlePending -and ((Get-Date) - $titleAt).TotalMilliseconds -ge 350) {
             $titlePending = $false
             $titleText = ""
@@ -688,19 +884,71 @@ while ($true) {
             if ($Verbose) { Write-Host "[title] '$titleText'" }
             if ($titleText -match 'LEVEL\s*(\d+)') {
                 $lvNum = [int]$Matches[1]
-                if ($lvNum -ne $currentLevel) {
-                    $currentLevel = $lvNum
-                    $summary = Format-LevelSummary $lvNum
-                    if ($summary) {
-                        Write-Host "-> $summary"
-                        Say $summary
-                        # The bar row (RESTART etc) is unchanged across levels; clearing
-                        # this lets it be re-announced after the level summary.
+
+                # Level select and Leaderboards share the same "LEVEL N" title, so the
+                # title alone cannot tell them apart - and announcing the save-file level
+                # summary on the leaderboard would be plain wrong. Level select always has
+                # the red bar (RESUME/RESTART/PRACTICE); the leaderboard never does, and
+                # names its mode underneath the level pips ("GLOBAL RANKING"). Read that
+                # line to be sure, since the board is still "LOADING" when the title lands.
+                $mode = ""
+                if ($bar[0] -lt 0) { $mode = Read-BandText $shot 0.19 0.26 }
+
+                if ($mode -match 'RANK') {
+                    $titleTries = 0
+                    $boardKey = "$lvNum|$mode"
+                    if ($boardKey -ne $lastBoardKey) {
+                        $lastBoardKey = $boardKey
+                        $currentLevel = $lvNum
+                        $phrase = "Level $lvNum, $mode"
+                        Write-Host "-> $phrase"
+                        Say $phrase
                         $lastSpoken = ""
                     }
+                } elseif ($bar[0] -ge 0) {
+                    # Level select - it is the screen with the red bar. Requiring the bar
+                    # matters: without it, a leaderboard caught mid-load (no readable mode
+                    # line yet) fell in here, set $currentLevel as a side effect, and then
+                    # the real "Level N, GLOBAL RANKING" was suppressed as a duplicate.
+                    $titleTries = 0
+                    $lastBoardKey = ""
+                    if ($lvNum -ne $currentLevel) {
+                        $currentLevel = $lvNum
+                        $summary = Format-LevelSummary $lvNum
+                        if ($summary) {
+                            Write-Host "-> $summary"
+                            Say $summary
+                            # The bar row (RESTART etc) is unchanged across levels;
+                            # clearing this lets it be re-announced after the summary.
+                            $lastSpoken = ""
+                        }
+                    }
+                } elseif ($titleTries -lt 8) {
+                    # A LEVEL title with no bar and no mode line yet: the leaderboard
+                    # shows LOADING for a moment after paging to another level. Come back
+                    # and look again instead of giving up, or that level change is never
+                    # announced at all.
+                    $titleTries++
+                    $titleAt = Get-Date
+                    $titlePending = $true
+                } else {
+                    $titleTries = 0
                 }
             } elseif ($titleText) {
+                $titleTries = 0
                 $currentLevel = 0
+                $lastBoardKey = ""
+            } elseif ($gold[0] -ge 0 -and $titleTries -lt 8) {
+                # An empty title read on the Leaderboards screen is a failed OCR, not a
+                # state worth acting on: the title is white text over an animated
+                # background and intermittently comes back blank. With no retry here the
+                # level change is never announced at all - this is the "sometimes it does
+                # not say the level" symptom.
+                $titleTries++
+                $titleAt = Get-Date
+                $titlePending = $true
+            } else {
+                $titleTries = 0
             }
         }
 
@@ -716,10 +964,75 @@ while ($true) {
         }
         $f8Was = $f8Down
 
-        $bar = [ThumperVision]::FindBar($shot)
+        if ($bar[0] -lt 0 -and $gold[0] -ge 0) {
+            # --- Leaderboards: selection is a thin gold outline, not the red bar ---
+            # Same settle-then-confirm gating as the bar path: the box slides between rows
+            # and the whole list slides when the page scrolls, and a read taken mid-slide
+            # returns a smeared or half-scrolled row.
+            $prof = [ThumperVision]::TextProfile($shot, $gold[0], $gold[1])
+            $changed = $false
+            if ($gold[0] -ne $lastBarTop -or -not $lastProfile) {
+                $changed = $true
+            } else {
+                $diff = 0; $total = 0; $maxBucket = 0
+                for ($i = 0; $i -lt $prof.Length; $i++) {
+                    $d = [math]::Abs($prof[$i] - $lastProfile[$i])
+                    $diff += $d
+                    if ($d -gt $maxBucket) { $maxBucket = $d }
+                    $total += $prof[$i]
+                }
+                $changed = ($total -gt 0) -and
+                           (($diff -gt [math]::Max(60, $total * 0.20)) -or ($maxBucket -ge 10))
+            }
+            $lastBarTop = $gold[0]
+            $lastProfile = $prof
 
-        if ($bar[0] -lt 0) {
-            # No selection bar: title screen, gameplay, or a screen without a highlighted row.
+            if ($changed) { $changeAt = Get-Date; $pendingRead = $true; $pendingTries = 0 }
+
+            if ($pendingRead -and ((Get-Date) - $changeAt).TotalMilliseconds -ge $SettleMs) {
+                $pendingRead = $false
+                $phrase = Read-LeaderboardRow $shot $gold[0] $gold[1]
+                if ($Verbose) { Write-Host ("[gold {0}-{1}] '{2}'" -f $gold[0], $gold[1], $phrase) }
+                if (-not $phrase -and $pendingTries -lt 4) {
+                    # An incomplete read (no score yet) returns nothing. Without an
+                    # explicit retry the row would stay silent until something else on
+                    # screen changed, which on a still list is never.
+                    $pendingTries++
+                    $changeAt = Get-Date
+                    $pendingRead = $true
+                }
+                if ($phrase) {
+                    $key = ($phrase -replace '\s', '').ToUpperInvariant()
+                    if ($key -ne $lastSpoken) {
+                        $pendingTries++
+                        if ($key -eq $pendingPhrase -or $pendingTries -ge 4) {
+                            $lastSpoken = $key
+                            $pendingPhrase = ""
+                            $pendingTries = 0
+                            Write-Host "-> $phrase"
+                            Say $phrase
+                            # Paging to another level always drops the selection back to
+                            # rank 1, so this is the moment to make sure the level itself
+                            # was announced. The title's pixel profile alone is not a
+                            # reliable trigger: between two levels only one digit changes.
+                            # Re-checking is cheap and $lastBoardKey stops any repeat.
+                            if ($phrase -match '^rank 1,') {
+                                $titleAt = Get-Date
+                                $titlePending = $true
+                                $titleTries = 0
+                            }
+                        } else {
+                            if ($Verbose) { Write-Host "   (unconfirmed: $phrase)" }
+                            $pendingPhrase = $key
+                            $changeAt = Get-Date
+                            $pendingRead = $true
+                        }
+                    }
+                }
+            }
+        } elseif ($bar[0] -lt 0) {
+            # No selection widget at all: title screen, gameplay, or a screen without a
+            # highlighted row.
             $lastBarTop = -1
             $lastProfile = $null
             $pendingRead = $false

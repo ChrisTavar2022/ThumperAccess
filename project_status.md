@@ -39,6 +39,39 @@ standard template workflow" for details.
 1. **Phase 1 (in progress): Main menu narration** via Tolk
 2. **Phase 2 (future): Gameplay auto-play assist** for tough sections
 
+## Leaderboards screen - WORKING (2026-09-20)
+
+The Leaderboards screen now reads aloud: `"Level 2, GLOBAL RANKING"` on entry and on level
+paging, then `"rank 11, SINTHREX, 279,300"` per row. Verified on levels 1 and 2 including
+long names, punctuation, page scrolling past row 10, and left/right level paging.
+
+This screen needed a **second selection-widget detector**. It is the only screen that does
+not use the red highlight bar - the selected row is marked with a thin **gold outline**
+(border, not fill), so `FindBar` saw nothing and the narrator was silent here.
+`FindGoldBox` finds the pair of thin gold edges instead.
+
+Deliberately **no "item N of M"** here: the row's rank number is its position and the list
+is hundreds long.
+
+The trap worth knowing (full detail in `notes/session-2026-09-20-leaderboards.md`): the
+label/value split must use the **near-white** pixel test and must **ignore the left screen
+margin**. A looser test catches Thumper's animated background beams sweeping through the
+gap, the margin then wins as "widest gap", and the row is announced as a mangled number
+("3,280,000" instead of "rank 3, KEVINGEM, 280,000"). It passed every static test before
+failing intermittently live.
+
+A user-reported bug - "sometimes changing levels does not announce the level" - was traced
+to four separate causes (coarse title-change trigger, mid-load fallthrough into the
+level-select branch, an empty title OCR being silently ignored, and a shared retry budget).
+Paging one level every 2.6s went from 4-of-9 announced to 8-of-9. It is **not 100%**: the
+title OCR still intermittently returns blank. If it needs to be exact, read the level from
+the **pip row** under the title (which pip is filled) instead of OCR-ing the title text.
+
+Still open on this screen: the gold rank badge is not read (needs measuring like the volume
+pips, not OCR); the `Y TOGGLE MODE` / `X TOGGLE VIEW` keyboard bindings are unknown and
+were not guessed; and rows can be skipped when arrowing quickly, since each announcement
+costs two OCR calls plus a confirm re-read.
+
 ## Current Milestone (updated 2026-09-18): PHASE 1 MENUS WORKING
 
 **Menus now speak through NVDA.** This was achieved by *screen reading*, not by reverse
@@ -160,6 +193,16 @@ the dynamic x64dbg session is the sole next step for Phase 1.
 ## Next Steps
 
 1. ~~Level select screen~~ - done, see above (counts still wrong).
+1a. ~~Leaderboards screen~~ - done 2026-09-20, see above. Follow-ups, none blocking:
+   - Read the gold rank badge on each row (measure/classify it like the volume pips - OCR
+     turns its dithering into speckle).
+   - Find the keyboard bindings for `Y TOGGLE MODE` / `X TOGGLE VIEW`. Not guessed, since
+     only ESC/Enter/arrows are confirmed. TOGGLE VIEW is likely an "around my rank" view,
+     which is the one a player actually cares about.
+   - Rows get skipped when arrowing quickly (two OCR calls + a confirm re-read per row).
+     Time the OCR calls before tuning `-SettleMs`.
+   - Untested: `VIEW PROFILE` (Enter on a row), and the per-level board reached from level
+     select via `X LEADERBOARDS`.
 2. **Results / rank screen - THE NEXT JOB.** The user's original ask ("if you score an S on
    a section"), and they confirmed they want it announced the same way the menus are now.
    Blocked only on seeing one: it appears after finishing a section, so capture it during a
