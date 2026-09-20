@@ -16,3 +16,7 @@ tools/scan/state/
 
 # NVDA Controller Client - user-supplied, NV Access's to distribute, not ours
 lib/
+
+# Local Claude Code settings - machine-specific paths/permissions, not for public repo
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
