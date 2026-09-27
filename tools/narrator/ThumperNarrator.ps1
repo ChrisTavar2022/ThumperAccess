@@ -524,7 +524,35 @@ function Read-BandText([System.Drawing.Bitmap]$shot, [double]$topFrac, [double]$
 # A leaderboard row is "rank + name" on the left and a score on the right. The row's own
 # rank number IS its position, and the list runs to hundreds of entries, so this
 # deliberately has no "item N of M" - unlike every other screen.
-function Read-LeaderboardRow([System.Drawing.Bitmap]$shot, [int]$top, [int]$bot) {
+#
+# The "Restart from checkpoint?" screen (reached from RESTART mid-run) reuses this exact
+# same gold-outline widget for a completely different row format - "LEVEL 1-14" style
+# checkpoint labels, not rank/name/score. It is a single short, centred phrase, not a real
+# two-column row, so it is read as ONE whole-row crop first (like "RESTORE DEFAULTS" or
+# "APPLY" elsewhere) - splitting it via SplitColumn (built for a genuine wide name/score
+# gap) picks an arbitrary small internal gap instead and cuts it into two fragments too
+# short to OCR reliably, the same class of failure isolated single letters hit elsewhere.
+# It never starts with a digit the way a leaderboard row does, so the two formats can never
+# be mistaken for each other.
+function Read-GoldRow([System.Drawing.Bitmap]$shot, [int]$top, [int]$bot) {
+    $wholeRaw = Read-Strip $shot $top $bot 0 0
+    if ($wholeRaw -match '^LEVEL\s+(\d+)\s*-\s*(.+)$') {
+        $lvl = $Matches[1]
+        $point = $Matches[2].Trim().TrimEnd('.').ToUpperInvariant()
+        # The special "current position" checkpoint is marked with an Omega (Ω) glyph in
+        # game - a rare enough character that Windows OCR's read of it isn't trustworthy
+        # (could come back as the real glyph, "O", "0", "Q", or empty). Anything that isn't
+        # cleanly numeric is safer treated as "current checkpoint" than risking a misread
+        # digit, since it is the only non-numeric entry this list ever has.
+        if ($point -match '^\d+$') {
+            return "Level $lvl, checkpoint $point"
+        } else {
+            return "Level $lvl, current checkpoint"
+        }
+    }
+
+    # Not a checkpoint row - fall back to the real two-column leaderboard split (rank+name
+    # on the left, score on the right, across a genuine wide gap).
     $split = [ThumperVision]::SplitColumn($shot, $top, $bot)
     $left = Read-Strip $shot $top $bot 0 $split
     $right = Read-Strip $shot $top $bot $split 0
@@ -1008,6 +1036,23 @@ function Format-LevelSummary([int]$number) {
     return "$bestPart. $runPart"
 }
 
+# For the "Restart from checkpoint?" screen. Deliberately reads the CURRENT RUN's sections
+# ($lv.sections), not the all-time best ($lv.best) the way Format-LevelSummary favours -
+# this screen's own on-screen rank badges show this run's progress (including sections not
+# yet attempted this run), since that is what actually matters when deciding which
+# checkpoint to restart from, not your historical best.
+function Format-CheckpointSections([int]$number) {
+    $lv = Get-LevelInfo $number
+    if (-not $lv) { return $null }
+    $sections = @($lv.sections)
+    $parts = @()
+    for ($i = 0; $i -lt $sections.Count; $i++) {
+        $r = $sections[$i]
+        $parts += if ($r -eq 'NONE') { "{0} not played" -f ($i + 1) } else { "{0} {1}" -f ($i + 1), $r }
+    }
+    return ("section ranks: {0}" -f ($parts -join ', '))
+}
+
 $vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
 Write-Host "Thumper narrator running on $($vs.Width)x$($vs.Height). Ctrl+C to stop."
 if (-not $Quiet) { Say "Thumper narrator ready" }
@@ -1059,17 +1104,28 @@ $fKeyWas = $false
 # it, so a lower total than one already confirmed is treated as a bad read, not a real
 # change. Reset alongside $lastSpoken wherever that already means "the screen changed."
 $script:knownTotal = 0
+# Which level's section-rank summary was last spoken on the "Restart from checkpoint?"
+# screen - reset everywhere $script:knownTotal is, for the same reason (a fresh screen
+# should announce its ranks again, even for a level already seen this session).
+$script:lastCheckpointLevel = 0
 
 while ($true) {
     $shot = $null
     try {
         $shot = [ThumperVision]::Grab($vs.X, $vs.Y, $vs.Width, $vs.Height)
 
-        # Which selection widget is on screen decides everything below. Only look for the
-        # Leaderboards gold outline when there is no red bar - every other screen has one,
-        # so this costs nothing on the common path.
+        # Which selection widget is on screen decides everything below. Both are checked on
+        # every poll now - the "Restart from checkpoint?" screen (reached from RESTART
+        # mid-run) showed this assumption was wrong: it has a real gold-outlined, navigable
+        # checkpoint list AND a separate static red "RESTART" confirm bar at the bottom, at
+        # the same time - the only screen that does. That static bar is colour-identical to
+        # a real selection bar, so FindBar happily matched it, and with gold only checked
+        # when no bar was found, the actually-navigable gold list was never even looked at -
+        # the screen read as a plain "RESTART" row and stayed silent about every checkpoint.
+        # A gold box only ever appears on Leaderboards or this screen, never elsewhere, so
+        # preferring it whenever found is safe everywhere else it's simply never present.
         $bar = [ThumperVision]::FindBar($shot)
-        $gold = if ($bar[0] -lt 0) { [ThumperVision]::FindGoldBox($shot) } else { @(-1, -1) }
+        $gold = [ThumperVision]::FindGoldBox($shot)
 
         # --- level select: announce which level, plus its score and ranks ---
         # The selection bar here sits on RESUME/RESTART/PRACTICE, so the bar logic alone
@@ -1138,6 +1194,7 @@ while ($true) {
                         Say $phrase
                         $lastSpoken = ""
                         $script:knownTotal = 0
+                        $script:lastCheckpointLevel = 0
                     }
                 } elseif ($bar[0] -ge 0) {
                     # Level select - it is the screen with the red bar. Requiring the bar
@@ -1159,6 +1216,7 @@ while ($true) {
                             # clearing this lets it be re-announced after the summary.
                             $lastSpoken = ""
                             $script:knownTotal = 0
+                            $script:lastCheckpointLevel = 0
                         }
                     }
                 } elseif ($titleTries -lt 8) {
@@ -1222,8 +1280,10 @@ while ($true) {
             $fKeyWas = $fKeyDown
         }
 
-        if ($bar[0] -lt 0 -and $gold[0] -ge 0) {
-            # --- Leaderboards: selection is a thin gold outline, not the red bar ---
+        if ($gold[0] -ge 0) {
+            # --- Leaderboards or Restart-from-checkpoint: a gold outline, not the red bar.
+            # Takes priority over any red bar also found - see the comment above where both
+            # are detected for why. ---
             # Same settle-then-confirm gating as the bar path: the box slides between rows
             # and the whole list slides when the page scrolls, and a read taken mid-slide
             # returns a smeared or half-scrolled row.
@@ -1249,7 +1309,7 @@ while ($true) {
 
             if ($pendingRead -and ((Get-Date) - $changeAt).TotalMilliseconds -ge $SettleMs) {
                 $pendingRead = $false
-                $phrase = Read-LeaderboardRow $shot $gold[0] $gold[1]
+                $phrase = Read-GoldRow $shot $gold[0] $gold[1]
                 if ($Verbose) { Write-Host ("[gold {0}-{1}] '{2}'" -f $gold[0], $gold[1], $phrase) }
                 if (-not $phrase -and $pendingTries -lt 4) {
                     # An incomplete read (no score yet) returns nothing. Without an
@@ -1267,6 +1327,19 @@ while ($true) {
                             $lastSpoken = $key
                             $pendingPhrase = ""
                             $pendingTries = 0
+                            # On the checkpoint screen, say the section-rank summary once
+                            # per level, right after the first confirmed checkpoint row -
+                            # it does not change as you scroll the list (it is the same
+                            # fixed badge strip at the top regardless of which checkpoint is
+                            # highlighted), so repeating it on every row would be noise.
+                            if ($phrase -match '^Level (\d+), (?:checkpoint|current checkpoint)') {
+                                $cpLevel = [int]$Matches[1]
+                                if ($cpLevel -ne $script:lastCheckpointLevel) {
+                                    $script:lastCheckpointLevel = $cpLevel
+                                    $sections = Format-CheckpointSections $cpLevel
+                                    if ($sections) { $phrase = "$phrase. $sections" }
+                                }
+                            }
                             Write-Host "-> $phrase"
                             Say $phrase
                             # Paging to another level always drops the selection back to
@@ -1297,6 +1370,7 @@ while ($true) {
             $pendingPhrase = ""
             $lastSpoken = ""
             $script:knownTotal = 0
+            $script:lastCheckpointLevel = 0
         } else {
             $center = [int](($bar[0] + $bar[1]) / 2)
             $half = [int]($shot.Height * 0.028)

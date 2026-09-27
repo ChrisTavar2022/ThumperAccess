@@ -226,6 +226,21 @@ notes file for what was tried. Full detail, including why `Get-TitleBox` was del
 NOT reused (it merges content on the Video screen in a way that would have broken
 FULLSCREEN's row), is in the same session notes file - do not re-derive.
 
+**Last previously-unencountered screen covered: "Restart from checkpoint?"** (reached from
+RESTART mid-run - the user found it live, completely silent). Two real bugs fixed: this is
+the only screen with a gold-outline list AND a static red bar on screen together, and
+`FindBar` was matching the static bar first, so the actually-navigable gold list was never
+even checked (gold is now always checked, and takes priority whenever found); and the
+row-reading OCR was splitting the short centred "LEVEL N-X" phrase the same fragile way
+leaderboard rows are split, cutting it into pieces too small to OCR (fixed by reading it as
+one whole-row crop first). Now announces `"Level 1, checkpoint 14"` /
+`"Level 1, current checkpoint"` while scrolling, plus that level's current-run section
+ranks once per level. **A near-miss worth remembering**: Enter on this screen restarts
+gameplay immediately from whichever checkpoint is highlighted - there is no safe
+"browsing" step despite the "?" in the title - confirmed the hard way while investigating
+(no progress was lost - it landed on the current/farthest checkpoint, not the start - but
+it could have). Full writeup, including why, is in the session notes file.
+
 The pip-row job (exact level detection on Leaderboards, item 1a below) was started and
 stopped before any code was written - no half-finished changes are in the tree. The
 measurements needed for it are already recorded in

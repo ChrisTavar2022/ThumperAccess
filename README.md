@@ -21,6 +21,9 @@ Working:
   bindings (`SPACE`). Single-letter bindings (W, A, S, D, R) aren't spoken - a confirmed
   Windows OCR limitation with isolated single characters, not a guess or a wrong answer;
   open **Options → Controls** in-game to see those directly.
+- "Restart from checkpoint?" (from RESTART mid-run): reads each checkpoint as you scroll
+  (`"Level 1, checkpoint 14"`, or `"Level 1, current checkpoint"` for your most recent
+  position), plus that level's current-run section ranks once per level.
 
 Not done yet:
 

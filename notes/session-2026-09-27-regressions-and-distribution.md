@@ -263,6 +263,75 @@ Verified live: all 8 rows now read `item N of 8` correctly and consistently acro
 cycling; ACTION and SELECT correctly speak `SPACE`; every other screen re-checked afterward
 (Video's 6 rows, Level Select, Leaderboards, Main Menu) still reads correctly.
 
+## New screen covered: "Restart from checkpoint?" (the last previously-unencountered screen)
+
+Reached from RESTART while genuinely mid-run (not from the level-select screen's own
+RESTART option - that one restarts immediately from the current checkpoint with no
+intermediate screen at all; the checkpoint browser is a different path the user found
+live). User found this live, mid-session, and it was completely silent - a screen never
+seen or tested before.
+
+**A real near-miss while investigating**: reaching this screen and testing it means
+navigating a list where **Enter immediately restarts gameplay from whichever checkpoint is
+highlighted - there is no separate, safe "just browsing" confirm step**, despite the
+screen's own "?" title suggesting one. Confirmed directly by the user after it happened:
+a single Enter sent while probing navigation (intended to open what was assumed to be a
+browse-first screen) instead loaded straight into gameplay at the currently-highlighted
+checkpoint (Ω - the most recent position, so no progress was actually lost, but it could
+have been a lower checkpoint). **Lesson for next time: on any list screen with an
+unconfirmed confirm-step assumption, verify with arrow keys and a screenshot before ever
+sending Enter, even once** - the "SELECT (Enter icon)" prompt already visible at bottom
+right the whole time was the tell that Enter acts immediately, same as every other gold-box
+list (Leaderboards) and red-bar menu in this game; there is no screen anywhere else in
+Thumper's UI where Enter opens a further confirm step.
+
+Layout (see the screenshot description in `Read-GoldRow`'s own comment, and the checkpoint
+regex there, for the exact format): title "RESTART FROM CHECKPOINT?", a fixed section-rank
+badge strip under the title (same current-run data as Level Select's own summary - does
+NOT change as you scroll), a gold-outline scrollable list of `LEVEL N-X` checkpoints (X is
+a section number, or the omega glyph Ω for "your current/farthest position" - the list's
+default/topmost entry), and a static red "RESTART" bar under the list that is NOT a second
+focusable target - it is a non-interactive/always-shown confirm hint, exactly matching the
+"SELECT" corner prompt.
+
+**Real bug found and fixed**: this screen is the only one in the game with a gold-outline
+widget AND a static red bar on screen at the same time. `FindBar` matched the static
+"RESTART" bar (it is colour-identical to a real selection bar), and since gold was only
+ever checked when no bar was found (`$gold = if ($bar[0] -lt 0) { FindGoldBox } else
+{ -1,-1 }`), the actually-navigable gold list was never even looked at - the screen read as
+a bare "RESTART" row via the generic bar path and stayed completely silent about every
+checkpoint. Fixed by always computing both `$bar` and `$gold` every poll, and having gold
+take priority whenever found, regardless of whether a bar was also found - safe everywhere
+else, since a gold box has never been observed anywhere except Leaderboards and this
+screen, and never together with a real (non-static) bar on either.
+
+**Second bug found and fixed, same investigation**: `Read-GoldRow`'s first attempt at
+`LEVEL N-X` parsing reused `SplitColumn` (built for leaderboard rows' genuine wide
+name/score gap) to split the row before OCR-ing each half - but this is a single short,
+centred phrase with no such gap, so `SplitColumn` picked an arbitrary small internal gap
+instead and cut it into two fragments too short to OCR reliably (empty result every time,
+same class of failure as the Controls screen's isolated single letters). Fixed by OCR-ing
+the whole row as one crop first (matching how "RESTORE DEFAULTS"/"APPLY" are read on other
+screens) and only falling back to the split-based leaderboard parsing if that doesn't match
+the checkpoint pattern - zero added OCR calls for the checkpoint case, one extra (cheap,
+already-tolerated) call for the leaderboard case.
+
+Announces `"Level 1, current checkpoint"` / `"Level 1, checkpoint 14"` etc. as the user
+scrolls, using the **current run's** section data (`$lv.sections`), not all-time best -
+deliberately different from `Format-LevelSummary` elsewhere, because this screen's own
+on-screen rank badges show current-run progress (including not-yet-attempted sections),
+which is what actually matters when picking a checkpoint to restart from. The section-rank
+summary itself (`Format-CheckpointSections`) is spoken once per level, appended to the
+first confirmed checkpoint-row announcement, not repeated on every row scrolled past (it
+is a fixed strip under the title, identical regardless of which checkpoint is
+highlighted) - tracked via `$script:lastCheckpointLevel`, reset everywhere
+`$script:knownTotal` already is.
+
+Verified live, read-only (no synthetic input sent once the user was actually on the
+screen): `"Level 1, current checkpoint. section ranks: 1 B, 2 S, 3 A, 4 S, 5 S, 6 S, 7 A,
+8 S, 9 S, 10 S, 11 B, 12 A, 13 C, 14 B, 15 not played"` - matches the save file and the
+on-screen badges exactly, including section 15 correctly "not played".
+
 ## Housekeeping
 
 `README.md`, `INSTALL.md`, `CLAUDE.md`, and `project_status.md` were all updated in step

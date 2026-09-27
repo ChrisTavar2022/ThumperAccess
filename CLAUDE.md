@@ -73,12 +73,78 @@ and `README.md`/`INSTALL.md` for the user-facing description:
 Reverse engineering is parked, kept only for **Phase 2** (see below), where screen reading
 genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not menu text.
 
+## Distribution (added 2026-09-27, working toward v1.0)
+
+- **Install path:** never hardcode it - call `Find-ThumperInstallDir` (defined in both
+  `ThumperNarrator.ps1` and `tools/savedata/ParseSave.ps1`), see "Environment" above.
+- **Auto-start:** `tools/narrator/Watch-Thumper.ps1` polls for the game process and
+  starts/stops the narrator with it. `tools/setup/Install-AutoStart.ps1` (+ `.cmd` wrapper)
+  registers a per-user, non-elevated login task for it; `Uninstall-AutoStart.ps1` removes
+  it. **Registering the task needs a real interactive session** - it fails with "Access is
+  denied" from an agent's own sandboxed tool calls even though it needs no admin rights; if
+  you hit this, ask the user to run `Install-AutoStart.cmd` themselves, then verify by
+  querying `Get-ScheduledTask`/`Get-ScheduledTaskInfo` and the process list directly - don't
+  rely on reading the console window's output (Windows Terminal renders as solid black to a
+  plain GDI screenshot).
+- **Player release package:** `tools/setup/Build-Release.ps1` copies an explicit runtime
+  file allowlist (kept in the script itself) into `dist/ThumperAccess/` (gitignored,
+  regenerate on demand) - no Ghidra/notes/dev tooling. Rebuild it after any change to a
+  file it packages, so it never drifts from what's actually shipped.
+- **Self-updating:** `VERSION` (repo root) + `tools/updater/Check-Update.ps1` (checks
+  GitHub Releases for `ChrisTavar2022/ThumperAccess`, never throws) +
+  `Install-Update.ps1` (downloads + merges over the existing install - never touches `lib/`
+  or `config/game-dir.txt`, since the release zip contains neither). **Never call `exit`
+  inside a script meant to run in-process via `&` from the narrator** - it kills the whole
+  narrator process, not just that call; use normal terminating errors instead, caught by
+  the caller. No release has been published yet as of 2026-09-27 (no git tags) - see
+  `notes/session-2026-09-27-regressions-and-distribution.md`.
+
+## Pixel-diagnosis gotchas (learned the hard way, 2026-09-27)
+
+- **`tools/capture/Capture.ps1` is not DPI-aware** - it prints the correct `SRC_RECT` but
+  actually *saves* a downscaled image (1280x720 instead of the real 1920x1080). Fine for
+  glancing at which screen is up; never trust its coordinates for pixel-precise work. For
+  that, do an inline DPI-aware capture instead (`SetProcessDPIAware()` + `CopyFromScreen`)
+  and sample pixel data directly.
+- **A GPU-composited window (Windows Terminal, etc.) can screenshot as solid black** via
+  plain GDI capture even though it's clearly visible on the real screen. Don't rely on
+  screenshotting a console window to read its output.
+- **Geometric shape classification has real limits.** Distinguishing an icon glyph
+  (an arrow, an Enter symbol) from an ordinary letter by aspect ratio / fill density /
+  mass-distribution does NOT work reliably - measured directly on the Controls screen, a
+  real "S" came out statistically indistinguishable from the up/down arrow shapes. Don't
+  assume a shape means what its neighbouring label implies, either - "LEFT"'s own icon
+  turned out to actually be a down arrow. When correctness matters (a blind player will act
+  on what's spoken), an unreliable classifier is worse than not guessing at all - see
+  `Read-ControlsValue`'s comment in `ThumperNarrator.ps1` for the full investigation.
+- **A widget-detection assumption ("only check gold when no red bar found") turned out
+  false.** The "Restart from checkpoint?" screen has a real gold-outline list AND a static
+  red bar on screen at once, the only screen that does - `FindBar` matched the static bar,
+  and the actually-navigable gold list was never checked. Both are now always checked every
+  poll, gold taking priority when found. Before assuming two UI conventions never coexist
+  on the same screen, check - a new screen not yet encountered can break that assumption
+  without warning.
+- **Never send `Enter` while probing an unfamiliar screen's navigation, even once, without
+  confirming the confirm-step first.** The checkpoint-restart screen above has no safe
+  "just browsing" state despite its own "?" title suggesting one - Enter on it immediately
+  restarts gameplay from whichever checkpoint is highlighted. Confirmed the hard way mid
+  investigation (no progress was actually lost, but it could have been). Verify a screen's
+  actual confirm behaviour with arrow keys and a screenshot first; the "SELECT (Enter icon)"
+  corner prompt present on every list-style screen in this game (Leaderboards, this one,
+  every red-bar menu) is the tell that Enter always acts immediately here - there is no
+  screen anywhere in Thumper's UI with a secondary confirm step.
+
 ## Feature Plan
 
-1. **Phase 1 (working):** Main menu, Options, Audio, Video, pause menu, dialogs, level
-   select, and settings values are all read aloud via NVDA. Not done yet: the post-section
-   results/rank screen, and announcing screen titles on transition. See `project_status.md`
-   "Next Steps" for the live list.
+1. **Phase 1 (working):** Main menu, Options, Gameplay, Controls, Audio, Video,
+   Leaderboards, Credits, "Restart from checkpoint?" (with per-level current-run section
+   ranks), pause menu, dialogs, level select, and settings values are all read aloud via
+   NVDA. `F8` (per-section best-rank detail) was deliberately removed
+   2026-09-27 ahead of v1.0 - a product decision, not a missing feature. Known limitation,
+   not a bug: the Controls screen can't speak single-letter key bindings (W/A/S/D/R) - a
+   confirmed Windows OCR limit, see "Pixel-diagnosis gotchas" above. Not done yet: the
+   post-section results/rank screen, and announcing screen titles on transition. See
+   `project_status.md` "Next Steps" for the live list.
 2. **Phase 2 (future): Gameplay obstacle auto-play assist** - for a chosen tough section,
    read the upcoming track/obstacle data ahead of time and have the mod take over input to
    play that section automatically. This is the one place static/dynamic reverse
@@ -113,13 +179,20 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
 ## References
 
 - `README.md` - Public-facing project description (status, how it works, credits)
-- `INSTALL.md` - End-user setup instructions (NVDA Controller Client, running the narrator)
+- `INSTALL.md` - End-user setup instructions (NVDA Controller Client, running the narrator,
+  auto-start, self-updating)
 - `docs/setup-guide.md` - Original template's project setup interview (Unity-specific, kept for reference)
 - `docs/localization-guide.md` - Text and announcement localization
 - `docs/menu-accessibility-checklist.md` - Menu implementation checklist
 - `docs/game-api.md` - Reverse-engineering findings (Ghidra/x64dbg), kept for Phase 2
 - `notes/session-2026-09-18-screen-reading-breakthrough.md` - The screen-reading method and
   every non-obvious gotcha behind it; read before changing the narrator
+- `notes/session-2026-09-27-regressions-and-distribution.md` - Root causes for all four
+  2026-09-27 bug fixes, the abandoned icon-classifier investigation, and the distribution
+  tooling added that session; read before touching `Get-MenuPosition`, `FindBar`, the
+  level-select/Leaderboards title logic, or the Controls screen again
 - `tools/narrator/`, `tools/ocr/`, `tools/capture/`, `tools/input/`, `tools/savedata/`,
   `tools/speech/` - The working Phase 1 implementation (see "Current approach" above)
+- `tools/setup/`, `tools/updater/`, `config/`, `VERSION` - Distribution tooling (see
+  "Distribution" above)
 - `tools/ghidra_scripts/`, `tools/scan/MemScan.ps1` - Phase 2 reverse-engineering tooling
