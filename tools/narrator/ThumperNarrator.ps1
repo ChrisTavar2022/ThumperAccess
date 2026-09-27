@@ -41,8 +41,8 @@ public class ThumperVision {
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
 
-    // Detail-key presses should only count while the game is actually in front, so the
-    // narrator does not start talking because F8 was pressed in some other program.
+    // Hotkey presses (the update installer's F1-F12) should only count while the game is
+    // actually in front, so the narrator does not react to a key press in some other app.
     public static bool ThumperFocused() {
         uint pid;
         GetWindowThreadProcessId(GetForegroundWindow(), out pid);
@@ -84,7 +84,17 @@ public class ThumperVision {
                 total++;
                 if (r > 150 && g < 110 && b < 110 && (r - g) > 70 && (r - b) > 70) red++;
             }
-            bar[row] = total > 0 && ((double)red / total) > 0.45;
+            // A row is counted even if under half its pixels are the strict red fingerprint
+            // above. A dense widget - a slider with enough pips, or a long label - covers
+            // enough of a row with white glyph/pip pixels to push the *middle* rows of an
+            // otherwise perfectly normal selection bar under a stricter threshold: measured
+            // on the Audio screen's VOLUME row, the middle third dropped to 0.41-0.44
+            // against 0.45, so only an 8px sliver at the very top of the ~50px bar passed -
+            // far too short to OCR anything, and the row went silent. Measured background
+            // red-fraction elsewhere on that same screen was 0 (this fingerprint is narrow:
+            // strongly red-dominant AND dark on green/blue), so there is wide margin to drop
+            // this without picking up stray background art.
+            bar[row] = total > 0 && ((double)red / total) > 0.30;
         }
 
         int bestTop = -1, bestBot = -1, bestLen = 0, cur = -1;
@@ -655,10 +665,116 @@ function Get-SliderValue([System.Drawing.Bitmap]$shot, [int]$barTop, [int]$barBo
     return [pscustomobject]@{ Value = $filled; Total = $count; StartX = $starts[0] }
 }
 
+# The Controls screen (Options -> Controls) lays its rows out very differently from every
+# other settings screen: the label sits far to the left (~x 0.19 of width) and the value far
+# to the right (~x 0.65-0.76), both largely outside the centred column band every other
+# reader assumes, and the value itself can mix real text ("SPACE", a single letter) with a
+# small icon badge (an arrow, or the Enter/Select symbol) separated by "/". Classifying which
+# icon is which shape was tried and abandoned: measured directly on a live capture, an
+# arrow's aspect ratio and pixel-fill density turned out statistically indistinguishable
+# from an ordinary letter's (a real "S" measured almost identical to the up/down arrow
+# shapes, and one row's icon - "LEFT" - turned out to actually be a DOWN arrow, not left,
+# so assuming label-matches-icon was also unsafe). Confidently naming a shape that
+# unreliable risks stating a wrong key binding, which is worse than omitting it.
+# So this reads text only: every action on this screen also has a real keyboard letter
+# alongside its icon, so a keyboard player loses nothing they actually need. Each right-side
+# blob cluster is OCR'd on its own and kept only if the result looks like a real key name
+# (letters only) - an icon glyph reliably OCRs to nothing or symbol garbage, silently
+# discarded here rather than risk speaking it.
+function Read-ControlsValue([System.Drawing.Bitmap]$shot, [int]$barTop, [int]$barBot) {
+    $w = $shot.Width
+    $r = [ThumperVision]::Blobs($shot, $barTop, $barBot, 0)
+    $n = $r[0]
+    if ($n -lt 1) { return "" }
+
+    $starts = @(); $widths = @()
+    for ($k = 0; $k -lt $n; $k++) { $starts += $r[1 + $k * 3]; $widths += $r[1 + $k * 3 + 1] }
+
+    # Value-side blobs only - measured live, every label ends by x 0.38 of width and every
+    # value starts no earlier than x 0.62, a wide and reliable gap between the two here.
+    $valueMin = [int]($w * 0.55)
+    $idx = @(); for ($k = 0; $k -lt $n; $k++) { if ($starts[$k] -ge $valueMin) { $idx += $k } }
+    if ($idx.Count -lt 1) { return "" }
+
+    # Group into clusters: a multi-letter word's own letters sit a few px apart; an icon and
+    # its neighbouring text sit 70px+ apart - measured live, a clean, wide gap between them.
+    $clusters = @()
+    $cur = $null
+    foreach ($k in $idx) {
+        if (-not $cur) { $cur = [pscustomobject]@{ Start = $starts[$k]; End = $starts[$k] + $widths[$k] - 1 } }
+        elseif (($starts[$k] - $cur.End) -le 20) { $cur.End = $starts[$k] + $widths[$k] - 1 }
+        else { $clusters += $cur; $cur = [pscustomobject]@{ Start = $starts[$k]; End = $starts[$k] + $widths[$k] - 1 } }
+    }
+    if ($cur) { $clusters += $cur }
+
+    $parts = @()
+    foreach ($c in $clusters) {
+        $left = [math]::Max(0, $c.Start - 10)
+        $right = [math]::Min($w, $c.End + 10)
+        # Crop tight to the glyph's own height, not the full ~54px bar - the same "small
+        # text on a mostly blank canvas returns nothing" trap Get-TitleBox works around
+        # elsewhere. A single letter measured about half the bar's height; left at full bar
+        # height it read as empty every time live, and cropping to its own bounds fixed it.
+        $topY = -1; $botY = -1
+        for ($y = $barTop; $y -le $barBot; $y++) {
+            $rowHas = $false
+            for ($x = $c.Start; $x -le $c.End; $x += 2) {
+                $px = $shot.GetPixel($x, $y)
+                if ($px.R -gt 180 -and $px.G -gt 150 -and $px.B -gt 150) { $rowHas = $true; break }
+            }
+            if ($rowHas) { if ($topY -lt 0) { $topY = $y }; $botY = $y }
+        }
+        if ($topY -lt 0) { if ($Verbose) { Write-Host "[controls-value] cluster $($c.Start)-$($c.End) no rows found" }; continue }
+        $topY = [math]::Max($barTop, $topY - 4)
+        $botY = [math]::Min($barBot, $botY + 4)
+        $rawText = Read-Strip $shot $topY $botY $left $right
+        $text = $rawText -replace '[^A-Za-z]', ''
+        if ($Verbose) { Write-Host "[controls-value] cluster $($c.Start)-$($c.End) y $topY-$botY crop $left-$right raw='$rawText' clean='$text'" }
+        if ($text.Length -ge 1 -and $text.Length -le 12) { $parts += $text.ToUpperInvariant() }
+    }
+    return ($parts -join ' or ')
+}
+
 # Menu rows are ~40px tall at 1280p; anything much shorter is a separator line or a stray
 # highlight in the background art, anything taller is the title logo.
-function Get-MenuPosition([System.Drawing.Bitmap]$shot, [int]$barCenter) {
-    $counts = [ThumperVision]::RowCounts($shot, 0.28, 0.72)
+# When a band comes out taller than a normal row, it is very likely real menu text fused
+# with animated background bleed through the loose grey test - measured live on the level
+# select screen, a stray blue/purple track line above RESUME merged with RESUME's own real
+# ~35px text into a 66px band, one row over the limit, and the whole thing - including the
+# real text - was silently dropped (RESUME vanished from the count entirely, which is why
+# RESTART and PRACTICE both read "of 2" instead of "of 3"). Recover the real text instead of
+# losing it: within the oversized band, find the tallest contiguous run of rows that qualify
+# on BRIGHT ALONE - the signal every real row measured so far has had throughout, and the
+# background bleed measured here never did - and use that if it is itself a normal row
+# height. Falls back to nothing (the band is still dropped) if no such run exists, which is
+# the previous, safe behaviour for a genuinely oversized non-text band.
+function Get-BrightSubBand($counts, [int]$top, [int]$bot, [int]$minBandH, [int]$maxBandH) {
+    $best = $null
+    $cur = $null
+    for ($y = $top; $y -le $bot; $y++) {
+        if ($counts[$y * 2] -ge 6) {
+            if (-not $cur) { $cur = [pscustomobject]@{ Top = $y; Bot = $y } }
+            $cur.Bot = $y
+        } elseif ($cur) {
+            $height = $cur.Bot - $cur.Top + 1
+            if ($height -ge $minBandH -and $height -le $maxBandH -and
+                (-not $best -or $height -gt ($best.Bot - $best.Top + 1))) { $best = $cur }
+            $cur = $null
+        }
+    }
+    if ($cur) {
+        $height = $cur.Bot - $cur.Top + 1
+        if ($height -ge $minBandH -and $height -le $maxBandH -and
+            (-not $best -or $height -gt ($best.Bot - $best.Top + 1))) { $best = $cur }
+    }
+    if (-not $best) { return $null }
+    $obj = [pscustomobject]@{ Top = $best.Top; Bot = $best.Bot; Bright = 0; Grey = 0 }
+    for ($y = $best.Top; $y -le $best.Bot; $y++) { $obj.Bright += $counts[$y * 2]; $obj.Grey += $counts[$y * 2 + 1] }
+    return $obj
+}
+
+function Get-MenuPosition([System.Drawing.Bitmap]$shot, [int]$barCenter, [double]$colLeft = 0.28, [double]$colRight = 0.72) {
+    $counts = [ThumperVision]::RowCounts($shot, $colLeft, $colRight)
     $h = $shot.Height
     # Keep this well above the first menu row. At 0.22 the Video menu's FULLSCREEN row sat
     # above the cutoff, so it was never counted: every row reported "of 5" instead of
@@ -676,11 +792,51 @@ function Get-MenuPosition([System.Drawing.Bitmap]$shot, [int]$barCenter) {
             if (-not $cur) { $cur = [pscustomobject]@{ Top = $y; Bot = $y; Bright = 0; Grey = 0 } }
             $cur.Bot = $y; $cur.Bright += $bright; $cur.Grey += $grey
         } elseif ($cur) {
-            if (($cur.Bot - $cur.Top + 1) -ge $minBandH -and ($cur.Bot - $cur.Top + 1) -le $maxBandH) { [void]$bands.Add($cur) }
+            $height = $cur.Bot - $cur.Top + 1
+            if ($height -ge $minBandH -and $height -le $maxBandH) { [void]$bands.Add($cur) }
+            elseif ($height -gt $maxBandH) {
+                $recovered = Get-BrightSubBand $counts $cur.Top $cur.Bot $minBandH $maxBandH
+                if ($recovered) { [void]$bands.Add($recovered) }
+            }
             $cur = $null
         }
     }
-    if ($cur -and ($cur.Bot - $cur.Top + 1) -ge $minBandH -and ($cur.Bot - $cur.Top + 1) -le $maxBandH) { [void]$bands.Add($cur) }
+    if ($cur) {
+        $height = $cur.Bot - $cur.Top + 1
+        if ($height -ge $minBandH -and $height -le $maxBandH) { [void]$bands.Add($cur) }
+        elseif ($height -gt $maxBandH) {
+            $recovered = Get-BrightSubBand $counts $cur.Top $cur.Bot $minBandH $maxBandH
+            if ($recovered) { [void]$bands.Add($recovered) }
+        }
+    }
+    if ($bands.Count -lt 1) { return $null }
+
+    # On a screen with few rows and no pip-row/score-line buffer under its title (Gameplay's
+    # single HUD row is the clearest case), the title itself can land close enough to the
+    # first real row to survive every other filter and get counted as an extra one - measured
+    # live, Gameplay's title had a Bright sum of 14303 against HUD's real 3204, a >4x gap.
+    # Titles consistently measure far brighter than a single row's label text across every
+    # screen sampled (8800-14300 vs 3100-3450) - a large, reliable gap. A subtitle under a
+    # title (Controls screen's grey "KEYBOARD" line) is the opposite problem: Bright is ~0,
+    # below the enabled floor, so it could never be counted anyway - but left in, its gap to
+    # the selected row still poisons refGap below (measured live: a 49px subtitle-to-row gap
+    # got picked over the real ~59px row pitch, since the grouping always takes the smaller
+    # of its two candidate gaps, and every real row after it then fell out of tolerance and
+    # was silently dropped from the count). Drop the topmost band - as long as it is not the
+    # selection itself - whenever it is either far brighter or implausibly dimmer than the
+    # rest average out to, so neither failure mode gets a chance to corrupt the pitch below.
+    for ($guard = 0; $guard -lt 2 -and $bands.Count -ge 2; $guard++) {
+        $rest = $bands | Select-Object -Skip 1
+        $restAvg = ($rest | Measure-Object -Property Bright -Average).Average
+        $isSelected = $barCenter -ge ($bands[0].Top - 6) -and $barCenter -le ($bands[0].Bot + 6)
+        if ($isSelected) { break }
+        $tooBright = $restAvg -gt 0 -and $bands[0].Bright -gt (3 * $restAvg)
+        $tooDim = $bands[0].Bright -le 200
+        if ($tooBright -or $tooDim) { $bands.RemoveAt(0) } else { break }
+    }
+    if ($Verbose) {
+        Write-Host ("[bands] " + (($bands | ForEach-Object { "$($_.Top)-$($_.Bot)(Br$($_.Bright)/Gr$($_.Grey))" }) -join " | "))
+    }
     if ($bands.Count -lt 1) { return $null }
 
     $selIdx = -1
@@ -727,8 +883,15 @@ function Get-MenuPosition([System.Drawing.Bitmap]$shot, [int]$barCenter) {
     $selectable = 0; $posOfSel = 0
     for ($k = $kLo; $k -le $kHi; $k++) {
         $bd = $slots[$k]
-        # A locked entry is drawn desaturated grey, with essentially no bright pixels.
-        $enabled = $bd.Bright -gt $bd.Grey
+        # A locked entry is drawn desaturated grey, with essentially no bright pixels - every
+        # real row measured so far has had a Bright sum in the thousands, genuinely-locked/
+        # background content close to 0. An absolute floor, not a Bright-vs-Grey comparison,
+        # matters here: measured live on the level select screen, a real enabled row (its
+        # own text fused with a stray blue/purple track line via the loose grey test) picked
+        # up a Grey sum that exceeded its own real Bright sum, and the relative comparison
+        # alone flipped it to "disabled" and dropped it from the count - which is why
+        # RESTART and PRACTICE both read "item 2 of 2" instead of 2/3 and 3/3.
+        $enabled = $bd.Bright -gt 200
         if ($k -eq 0) { $enabled = $true }
         if ($enabled) { $selectable++; if ($k -eq 0) { $posOfSel = $selectable } }
     }
@@ -745,11 +908,55 @@ $saveParser = Join-Path $PSScriptRoot "..\savedata\ParseSave.ps1"
 $script:LevelData = $null
 $script:SaveStamp = $null
 $script:SavePath = $null
+$script:InstallDirWarned = $false
+
+# Thumper's install folder was assumed to be under the default Steam library
+# (C:\...\Steam\steamapps\common\Thumper), but every player's machine is different: Steam
+# can have several libraries across drives, or Thumper might not be under Steam's default
+# library at all, and a missing path fails silent (Get-ChildItem on a missing path just
+# returns nothing, no error) - the level summary just quietly never speaks. Three ways to
+# find it, in order: a player-set override, every Steam library the local client knows
+# about, then the single-library default as a last resort.
+function Find-ThumperInstallDir {
+    $configPath = Join-Path $PSScriptRoot "..\..\config\game-dir.txt"
+    if (Test-Path $configPath) {
+        $override = Get-Content $configPath -ErrorAction SilentlyContinue |
+            Where-Object { $_ -and ($_.Trim() -notlike '#*') } | Select-Object -First 1
+        if ($override -and (Test-Path $override.Trim())) { return $override.Trim() }
+    }
+
+    $roots = @("C:\Program Files (x86)\Steam")
+    $vdf = "C:\Program Files (x86)\Steam\steamapps\libraryfolders.vdf"
+    if (Test-Path $vdf) {
+        $found = [regex]::Matches((Get-Content $vdf -Raw), '"path"\s+"([^"]+)"') |
+            ForEach-Object { $_.Groups[1].Value -replace '\\\\', '\' }
+        if ($found) { $roots = $found }
+    }
+    foreach ($r in $roots) {
+        $candidate = Join-Path $r "steamapps\common\Thumper"
+        if (Test-Path $candidate) { return $candidate }
+    }
+    return $null
+}
 
 function Update-LevelData {
     try {
         if (-not $script:SavePath) {
-            $base = "C:\Program Files (x86)\Steam\steamapps\common\Thumper\savedata"
+            $installDir = Find-ThumperInstallDir
+            if (-not $installDir) {
+                # A silent failure here is invisible to a blind player - the level select
+                # screen would just never announce its summary, with nothing on screen to
+                # explain why. Say it once (not every poll) so it is actually discoverable.
+                if (-not $script:InstallDirWarned) {
+                    $script:InstallDirWarned = $true
+                    $msg = "Could not find the Thumper install folder. Level summaries " +
+                           "are unavailable until you set it in config game-dir.txt. See INSTALL.md."
+                    Write-Host $msg
+                    Say $msg
+                }
+                return
+            }
+            $base = Join-Path $installDir "savedata"
             $d = Get-ChildItem $base -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $d) { return }
             $script:SavePath = Join-Path $d.FullName "data_0.sav"
@@ -759,7 +966,7 @@ function Update-LevelData {
         $stamp = (Get-Item $script:SavePath).LastWriteTimeUtc
         if ($script:SaveStamp -eq $stamp -and $script:LevelData) { return }
         $script:SaveStamp = $stamp
-        $json = & $saveParser -Json 2>$null
+        $json = & $saveParser -Json -Path $script:SavePath 2>$null
         if ($json) { $script:LevelData = $json | ConvertFrom-Json }
     } catch {
         Write-Host "save read failed: $($_.Exception.Message)"
@@ -801,25 +1008,35 @@ function Format-LevelSummary([int]$number) {
     return "$bestPart. $runPart"
 }
 
-function Format-LevelDetail([int]$number) {
-    $lv = Get-LevelInfo $number
-    if (-not $lv) { return $null }
-    # Read the all-time best per section, not the current run. The current run is usually
-    # mostly empty, and "which sections have I got an S on" is the question being asked.
-    $sections = @($lv.best)
-    if (@($sections | Where-Object { $_ -ne 'NONE' }).Count -eq 0) { $sections = @($lv.sections) }
-    $parts = @()
-    for ($i = 0; $i -lt $sections.Count; $i++) {
-        $r = $sections[$i]
-        $parts += if ($r -eq 'NONE') { "{0} not played" -f ($i + 1) } else { "{0} {1}" -f ($i + 1), $r }
-    }
-    return ("Level {0} best ranks: {1}" -f $number, ($parts -join ', '))
-}
-
 $vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
 Write-Host "Thumper narrator running on $($vs.Width)x$($vs.Height). Ctrl+C to stop."
-Write-Host "On the level select screen, press F8 for section-by-section ranks."
 if (-not $Quiet) { Say "Thumper narrator ready" }
+
+# --- update check, once per launch ---
+# A single check at startup, not on a timer: the narrator is typically relaunched once per
+# play session anyway (more so with auto-start), so that already gives frequent-enough
+# checks without adding a background timer. A blocked or slow request just means a few
+# seconds' delay before the main loop starts - Check-Update.ps1 never throws, so a failed
+# check (no internet, GitHub down, no release published yet) is silently a no-op here too.
+$script:UpdateAvailable = $false
+$script:UpdateUrl = ""
+$updateChecker = Join-Path $PSScriptRoot "..\updater\Check-Update.ps1"
+try {
+    $updateJson = & $updateChecker 2>$null
+    if ($updateJson) {
+        $update = $updateJson | ConvertFrom-Json
+        if ($update.Available) {
+            $script:UpdateAvailable = $true
+            $script:UpdateUrl = $update.Url
+            $msg = "A new version, $($update.Version), is available. Press any F key to install it."
+            Write-Host $msg
+            Say $msg
+        }
+    }
+} catch {
+    # Same principle as everywhere else this narrator talks to the outside world (the save
+    # file, the game window): a missing or broken updater must never take the narrator down.
+}
 
 $lastSpoken = ""
 $lastBarTop = -1
@@ -831,10 +1048,17 @@ $pendingTries = 0
 $lastTitleProfile = $null
 $titleAt = [DateTime]::MinValue
 $titlePending = $false
-$currentLevel = 0
+$lastWidgetKind = ""
+$lastLevelSummary = 0
 $lastBoardKey = ""
 $titleTries = 0
-$f8Was = $false
+$fKeyWas = $false
+# The highest "item N of M" total seen since the screen last changed. Backstop against
+# Get-MenuPosition undercounting on a noisy frame (see the level select item-count fixes
+# above it) - a real screen's row count does not legitimately shrink while you sit still on
+# it, so a lower total than one already confirmed is treated as a bad read, not a real
+# change. Reset alongside $lastSpoken wherever that already means "the screen changed."
+$script:knownTotal = 0
 
 while ($true) {
     $shot = $null
@@ -872,6 +1096,16 @@ while ($true) {
         }
         $lastTitleProfile = $titleProf
 
+        # Level select and Leaderboards can show the identical "LEVEL N" title pixels -
+        # same text, same position - so going from one screen to the other at the same
+        # level number moves nothing in the title profile, $titleChanged stays false, and
+        # the whole branch below (bar vs. gold vs. mode) never even re-runs: the screen
+        # changed but nothing gets re-announced. Force a re-check whenever which selection
+        # widget is on screen flips, since that alone proves the screen changed.
+        $widgetKind = if ($bar[0] -ge 0) { "bar" } elseif ($gold[0] -ge 0) { "gold" } else { "none" }
+        if ($widgetKind -ne $lastWidgetKind) { $titleChanged = $true }
+        $lastWidgetKind = $widgetKind
+
         # A fresh title change gets a fresh retry budget. Without the reset, failed reads
         # on one level eat the allowance for the next, and paging quickly leaves later
         # levels unannounced.
@@ -899,21 +1133,24 @@ while ($true) {
                     $boardKey = "$lvNum|$mode"
                     if ($boardKey -ne $lastBoardKey) {
                         $lastBoardKey = $boardKey
-                        $currentLevel = $lvNum
                         $phrase = "Level $lvNum, $mode"
                         Write-Host "-> $phrase"
                         Say $phrase
                         $lastSpoken = ""
+                        $script:knownTotal = 0
                     }
                 } elseif ($bar[0] -ge 0) {
                     # Level select - it is the screen with the red bar. Requiring the bar
                     # matters: without it, a leaderboard caught mid-load (no readable mode
-                    # line yet) fell in here, set $currentLevel as a side effect, and then
-                    # the real "Level N, GLOBAL RANKING" was suppressed as a duplicate.
+                    # line yet) fell in here and the real "Level N, GLOBAL RANKING" was
+                    # suppressed as a duplicate once it actually loaded.
                     $titleTries = 0
                     $lastBoardKey = ""
-                    if ($lvNum -ne $currentLevel) {
-                        $currentLevel = $lvNum
+                    # Gated on its own tracker so checking Level 1's leaderboard and then
+                    # returning to Level 1's select screen doesn't look like "no change" and
+                    # silently suppress the summary - see notes/session-2026-09-27.
+                    if ($lvNum -ne $lastLevelSummary) {
+                        $lastLevelSummary = $lvNum
                         $summary = Format-LevelSummary $lvNum
                         if ($summary) {
                             Write-Host "-> $summary"
@@ -921,6 +1158,7 @@ while ($true) {
                             # The bar row (RESTART etc) is unchanged across levels;
                             # clearing this lets it be re-announced after the summary.
                             $lastSpoken = ""
+                            $script:knownTotal = 0
                         }
                     }
                 } elseif ($titleTries -lt 8) {
@@ -936,7 +1174,7 @@ while ($true) {
                 }
             } elseif ($titleText) {
                 $titleTries = 0
-                $currentLevel = 0
+                $lastLevelSummary = 0
                 $lastBoardKey = ""
             } elseif ($gold[0] -ge 0 -and $titleTries -lt 8) {
                 # An empty title read on the Leaderboards screen is a failed OCR, not a
@@ -952,17 +1190,37 @@ while ($true) {
             }
         }
 
-        # --- F8: read the section-by-section ranks for the level on screen ---
-        $f8Down = ([ThumperVision]::GetAsyncKeyState(0x77) -band 0x8000) -ne 0
-        if ($f8Down -and -not $f8Was -and [ThumperVision]::ThumperFocused()) {
-            if ($currentLevel -gt 0) {
-                $detail = Format-LevelDetail $currentLevel
-                if ($detail) { Write-Host "-> $detail"; Say $detail }
-            } else {
-                Say "No level selected"
+        # --- update install: any F1-F12 key, but only while an update is actually pending ---
+        # Only fires while $script:UpdateAvailable is true, which is rare (once a new
+        # version has been announced) - exactly what was asked for, "press any of the top
+        # keys" to install, not one specific key a blind player would need to have memorised.
+        if ($script:UpdateAvailable) {
+            $fKeyDown = $false
+            for ($vk = 0x70; $vk -le 0x7B; $vk++) {
+                if (([ThumperVision]::GetAsyncKeyState($vk) -band 0x8000) -ne 0) { $fKeyDown = $true; break }
             }
+            if ($fKeyDown -and -not $fKeyWas -and [ThumperVision]::ThumperFocused()) {
+                Say "Installing update. Please wait."
+                $installer = Join-Path $PSScriptRoot "..\updater\Install-Update.ps1"
+                try {
+                    & $installer -Url $script:UpdateUrl
+                    Say "Update installed. Restarting the narrator."
+                    Start-Sleep -Milliseconds 1500
+                    # A fresh process, not a re-run of this loop: the files this process
+                    # already loaded (this very .ps1, among them) may have just been
+                    # overwritten on disk, and only a new process picks up the new code.
+                    # The new instance's own startup self-kill (top of this file) retires
+                    # this one, the same way starting the narrator by hand always has.
+                    Start-Process -FilePath (Join-Path $PSScriptRoot "Start-Narrator.cmd")
+                    exit
+                } catch {
+                    Say "Update failed. Continuing with the current version."
+                    Write-Host "update failed: $($_.Exception.Message)"
+                    $script:UpdateAvailable = $false
+                }
+            }
+            $fKeyWas = $fKeyDown
         }
-        $f8Was = $f8Down
 
         if ($bar[0] -lt 0 -and $gold[0] -ge 0) {
             # --- Leaderboards: selection is a thin gold outline, not the red bar ---
@@ -1038,6 +1296,7 @@ while ($true) {
             $pendingRead = $false
             $pendingPhrase = ""
             $lastSpoken = ""
+            $script:knownTotal = 0
         } else {
             $center = [int](($bar[0] + $bar[1]) / 2)
             $half = [int]($shot.Height * 0.028)
@@ -1095,9 +1354,42 @@ while ($true) {
                 } else {
                     $text = Read-Strip $shot $top $bot 0 0
                 }
+
+                # The Controls screen's rows (label far-left, value far-right with icon
+                # glyphs mixed in) do not fit the label/value split above at all - see
+                # Read-ControlsValue's own comment for the full reasoning. Detected off the
+                # label text itself (already correctly read above) rather than a separate
+                # title check, since every row on this screen has one of these exact labels
+                # and nothing on any other screen does.
+                $isControlsScreen = $text.Trim().ToUpperInvariant() -match
+                    '^(ACTION|UP|LEFT|DOWN|RIGHT|QUICK RESTART|SELECT|RESTORE DEFAULTS)$'
+                $isControlsRow = $isControlsScreen -and
+                    $text.Trim().ToUpperInvariant() -ne 'RESTORE DEFAULTS'
+                if ($isControlsRow) {
+                    $value = Read-ControlsValue $shot $bar[0] $bar[1]
+                }
+
                 if ($Verbose) { Write-Host ("[bar {0}-{1}] '{2}' / '{3}'" -f $bar[0], $bar[1], $text, $value) }
                 if (($text -or $value) -and $text.Length -le 48) {
-                    $pos = Get-MenuPosition $shot $center
+                    if ($isControlsScreen) {
+                        $pos = Get-MenuPosition $shot $center 0.15 0.85
+                    } else {
+                        $pos = Get-MenuPosition $shot $center
+                    }
+                    if ($pos) {
+                        if ($pos.Total -gt $script:knownTotal) {
+                            $script:knownTotal = $pos.Total
+                        } elseif ($pos.Total -lt $script:knownTotal) {
+                            # This read counted fewer rows than a total already confirmed on
+                            # this exact screen - a real screen's row count does not shrink
+                            # while you sit still on it, so this is background art bleeding
+                            # into the row scan again (see the fixes above this function),
+                            # not a real change. Don't speak a total known to be wrong - the
+                            # label alone still gets said, and the next poll gets another
+                            # chance at a clean read.
+                            $pos = $null
+                        }
+                    }
                     $phrase = $text
                     if ($value) { $phrase = if ($text) { "$text, $value" } else { $value } }
                     if ($pos) { $phrase += ", item {0} of {1}" -f $pos.Index, $pos.Total }
@@ -1119,6 +1411,20 @@ while ($true) {
                             $pendingTries = 0
                             Write-Host "-> $phrase"
                             Say $phrase
+                            # Level select and the main menu both use this same red bar, and
+                            # the title-band change detector cannot be trusted to notice the
+                            # difference: sitting on the main menu, the animated background
+                            # in that band can jitter continuously and never let the 350ms
+                            # settle window complete, so the title is never actually re-read
+                            # and the level-summary memory below never gets cleared there. A
+                            # confirmed row that is NOT one of level select's own
+                            # (RESUME/RESTART/PRACTICE/START) proves we have left it, so
+                            # clear the memory directly here instead - returning to the same
+                            # level later then announces its summary again rather than
+                            # staying silent because "that level was already announced".
+                            if ($text -and ($text.Trim().ToUpperInvariant() -notmatch '^(RESUME|RESTART|PRACTICE|START)$')) {
+                                $lastLevelSummary = 0
+                            }
                         } else {
                             if ($Verbose) { Write-Host "   (unconfirmed: $phrase)" }
                             $pendingPhrase = $key

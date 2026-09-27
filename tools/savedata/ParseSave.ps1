@@ -24,7 +24,36 @@ param(
 )
 
 if (-not $Path) {
-    $base = "C:\Program Files (x86)\Steam\steamapps\common\Thumper\savedata"
+    # Don't assume the default Steam library - every player's machine is different, and
+    # Thumper might not even be under Steam's default library. Three ways to find it, in
+    # order: a player-set override, every Steam library the local client knows about, then
+    # the single-library default as a last resort.
+    $installDir = $null
+    $configPath = Join-Path $PSScriptRoot "..\..\config\game-dir.txt"
+    if (Test-Path $configPath) {
+        $override = Get-Content $configPath -ErrorAction SilentlyContinue |
+            Where-Object { $_ -and ($_.Trim() -notlike '#*') } | Select-Object -First 1
+        if ($override -and (Test-Path $override.Trim())) { $installDir = $override.Trim() }
+    }
+
+    if (-not $installDir) {
+        $roots = @("C:\Program Files (x86)\Steam")
+        $vdf = "C:\Program Files (x86)\Steam\steamapps\libraryfolders.vdf"
+        if (Test-Path $vdf) {
+            $found = [regex]::Matches((Get-Content $vdf -Raw), '"path"\s+"([^"]+)"') |
+                ForEach-Object { $_.Groups[1].Value -replace '\\\\', '\' }
+            if ($found) { $roots = $found }
+        }
+        foreach ($r in $roots) {
+            $candidate = Join-Path $r "steamapps\common\Thumper"
+            if (Test-Path $candidate) { $installDir = $candidate; break }
+        }
+    }
+    if (-not $installDir) {
+        Write-Error "Could not find a Thumper install. Set it in config\game-dir.txt (see config\game-dir.example.txt)."
+        exit 1
+    }
+    $base = Join-Path $installDir "savedata"
     $dir = Get-ChildItem $base -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $dir) { Write-Error "No savedata folder found under $base"; exit 1 }
     $Path = Join-Path $dir.FullName "data_0.sav"

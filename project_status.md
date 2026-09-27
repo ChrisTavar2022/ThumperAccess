@@ -3,7 +3,8 @@
 ## Setup Info
 
 - **Game:** Thumper (Drool LLC)
-- **Install path:** `C:\Program Files (x86)\Steam\steamapps\common\Thumper`
+- **Install path:** auto-detected across Steam libraries (see `CLAUDE.md` -> Environment);
+  override in `config\game-dir.txt` if it ever fails to find it
 - **Engine:** Custom native C/C++ (SDL2 + FMOD) - NOT Unity/Unreal
 - **Architecture:** Thumper's exes are x64 (`THUMPER_win8.exe`, `THUMPER_dx9.exe`), but the
   **dev machine's Windows install is ARM64** (Windows on ARM), not x64. Thumper therefore
@@ -190,19 +191,50 @@ fully exhausted (4 independent techniques, all negative) - see
 `notes/session-2026-07-13-aggressive-analysis.md`. No further static scans planned;
 the dynamic x64dbg session is the sole next step for Phase 1.
 
-## Where we stopped (2026-09-20)
+## Where we stopped (2026-09-27)
 
 The user is playing the game with the narrator to find what is actually broken in real
 use, rather than working down this list in order. **Pick up from whatever they report.**
+This has been true since 2026-09-20 and remains the working method.
 
-The pip-row job (exact level detection, item 1a below) was started and stopped before any
-code was written - no half-finished changes are in the tree. The measurements needed for
-it are already recorded in `notes/session-2026-09-20-leaderboards.md`, so it can start
-from those rather than re-probing the screen.
+**2026-09-27 fixed four real bugs, live, in one session** - full root causes and fixes for
+each are in `notes/session-2026-09-27-regressions-and-distribution.md`, do not re-derive:
+level select's summary going silent after visiting Leaderboards (three compounding causes,
+plus a hardcoded save-file path that happened to break on this machine); the Audio VOLUME
+slider losing its label because the game's slider widget got denser than the bar-detector's
+threshold assumed; and level select's `item N of M` counts (`RESUME item 1 of 2` etc.) -
+this last one took three separate fixes to fully pin down (a stray animated background
+track line corrupting the row scan three different ways across different frames) and is
+verified stable across multiple live polls. That same session also added distribution
+tooling: configurable/auto-detected install path, auto-start via a login scheduled task, a
+player-only release packager, and self-updating via GitHub Releases.
+
+**Goal for today: public v1.0 release.** As part of getting there, **F8 / per-section
+best-rank detail was removed entirely** (was: press F8 on level select to hear every
+section's best rank) - a deliberate product decision, not a bug fix. `Format-LevelDetail`,
+its key handler, and all mentions in `README.md`/`INSTALL.md` are gone. The level summary
+itself (score/rank/S-count/current-run) is unaffected and still announces normally.
+
+A full regression pass across every screen then found two more real bugs, both fixed and
+verified live: the **Gameplay screen** miscounted its single HUD row as "item 2 of 2"
+(its title sat close enough to count as a phantom second row); and the **Controls screen**
+needed a dedicated reader built from scratch (label-far-left/value-far-right layout with
+icon glyphs, totally unlike every other settings screen) - it now reads all 8 rows with
+correct counts and correctly speaks multi-letter keys (`SPACE`). Single-letter keys (W, A,
+S, D, R) are a confirmed, verified-exhausted Windows OCR limitation, not a bug - see the
+notes file for what was tried. Full detail, including why `Get-TitleBox` was deliberately
+NOT reused (it merges content on the Video screen in a way that would have broken
+FULLSCREEN's row), is in the same session notes file - do not re-derive.
+
+The pip-row job (exact level detection on Leaderboards, item 1a below) was started and
+stopped before any code was written - no half-finished changes are in the tree. The
+measurements needed for it are already recorded in
+`notes/session-2026-09-20-leaderboards.md`, so it can start from those rather than
+re-probing the screen.
 
 ## Next Steps
 
-1. ~~Level select screen~~ - done, see above (counts still wrong).
+1. ~~Level select screen~~ - done, including item counts (fixed 2026-09-27, see above).
 1a. ~~Leaderboards screen~~ - done 2026-09-20, see above. Follow-ups, none blocking:
    - Read the gold rank badge on each row (measure/classify it like the volume pips - OCR
      turns its dithering into speckle).
@@ -238,12 +270,13 @@ from those rather than re-probing the screen.
 6. Consider a C# rewrite as a single distributable app, and an ARM64 NVDA controller
    client to remove the 32-bit PowerShell requirement.
 
-### Level select screen - WORKING, except item counts
+### Level select screen - WORKING, including item counts (fixed 2026-09-27)
 
-Announces on level change, and F8 reads the section list. Verified:
+Announces on level change. Verified:
 - `"Level 1, score 115,250, rank A, 14 of 15 sections played, 6 S ranks"`
-- `"Level 1 sections: 1 S, 2 A, 3 A, 4 A, 5 S, 6 S, 7 A, 8 B, 9 S, 10 S, 11 C, 12 S, 13 C,
-  14 C, 15 not played"`
+
+(**F8 / per-section detail was removed 2026-09-27**, ahead of the public v1.0 release - see
+"Removed" note below. The section-list examples in this file are historical.)
 
 Both match the screen exactly. The title is located with `Get-TitleBox` (tallest text band
 near the top, cropped to its glyph bounds) - hardcoded crop fractions failed both ways and
@@ -252,26 +285,19 @@ should not be reattempted.
 Announcements now report the **all-time best** alongside the current run, because reporting
 only the current run was misleading after a restart:
 - `"Level 1, best score 115,250, rank A, 8 S ranks. current run 1 of 15 sections"`
-- F8: `"Level 1 best ranks: 1 C, 2 S, 3 S, 4 S, 5 S, 6 B, 7 S, 8 S, 9 S, 10 S, 11 B, 12 B,
-  13 B, 14 B, 15 not played"`
 
 This also confirms block 2 = all-time best: it shows 8 S ranks where the current-run block
 showed 6, and survived the level 1 restart intact.
 
-Counts on this screen looked correct in the last test ("PRACTICE, item 3 of 3",
-"START, item 3 of 3") after switching row grouping from list adjacency to pitch multiples.
-Re-check on the level select specifically before closing this out.
-
-**Previously broken: `Get-MenuPosition` counts on this screen.** RESUME/RESTART/PRACTICE
-report "1 of 1", "1 of 2", "2 of 2" (should be 1/2/3 of 3). Two fixes were tried and
-neither worked - reference pitch taken next to the selection instead of the median, then
-grouping rows by pitch multiples instead of list adjacency. Since both failed, the fault is
-almost certainly upstream in band detection: the three menu rows are probably not all being
-detected as bands at the same time on this screen (background art here is much brighter
-than in the plain menus, and `RowCounts` uses a fixed brightness threshold). **Debug band
-detection itself before touching the grouping logic again** - dump what `ListItems.ps1`
-sees on this screen and compare against the three real rows. Everything else on the screen
-works, so this is cosmetic, not blocking.
+**Fixed 2026-09-27, verified live and stable across multiple polls** ("PRACTICE, item 3 of
+3" on Level 2, previously "2 of 2"). User-reported live; two earlier fix attempts
+(reference pitch taken next to the selection instead of the median; grouping rows by pitch
+multiples instead of list adjacency) were already in the code and had not fully resolved
+it. Root cause was a stray animated background track line bleeding into the row scan,
+corrupting the count three different ways across different frames - full diagnostic detail
+and all three fixes (`Get-BrightSubBand` recovery, an absolute-floor `enabled` check, and a
+sticky high-water-mark total) are in
+`notes/session-2026-09-27-regressions-and-distribution.md`.
 
 ### Older notes on this screen
 

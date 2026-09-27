@@ -1,0 +1,11 @@
+# Only needed if the narrator can't find Thumper on its own (it checks every Steam
+# library first). To set it manually:
+#
+#   1. Copy this file to game-dir.txt in this same folder (do not rename this one).
+#   2. Replace the line below with your own Thumper install folder - the one that
+#      directly contains THUMPER_win8.exe.
+#   3. Save and restart the narrator.
+#
+# game-dir.txt is gitignored - it is specific to your machine, not part of the mod.
+
+C:\Program Files (x86)\Steam\steamapps\common\Thumper

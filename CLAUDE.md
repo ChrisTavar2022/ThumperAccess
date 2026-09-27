@@ -25,7 +25,12 @@ When the user says **"Resume Thumper"** (or just "Resume" / "Pick up where we le
 ## Environment
 
 - **OS:** Windows (Bash/Git Bash)
-- **Game directory:** `C:\Program Files (x86)\Steam\steamapps\common\Thumper`
+- **Game directory:** auto-detected (checks every Steam library the local client knows
+  about) - it is NOT a fixed path, since it differs per machine and has already been seen
+  on both `C:\...\Steam\...` and a second library on `E:\...`. A player can override it in
+  `config\game-dir.txt` (gitignored, see `config\game-dir.example.txt`) if auto-detection
+  ever fails - e.g. a non-Steam install. Don't hardcode this path in new code; call
+  `Find-ThumperInstallDir` (defined in both `ThumperNarrator.ps1` and `ParseSave.ps1`).
 - **Architecture:** 64-bit (both `THUMPER_win8.exe` and `THUMPER_dx9.exe` are x64; win8 is the default/modern target)
 - **Engine:** Custom native C/C++ engine (SDL2 + FMOD), built by Drool LLC. **NOT Unity, NOT Unreal.**
 

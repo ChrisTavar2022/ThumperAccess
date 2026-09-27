@@ -65,11 +65,29 @@ your machine's settings.
 To stop it, press `Ctrl+C` in that window or just close the window. Launching it again
 automatically replaces a running copy, so you can never end up with two voices at once.
 
+## 5. (Optional) Start it automatically with the game
+
+By default you run `Start-Narrator.cmd` yourself each time. To skip that:
+
+```
+tools\setup\Install-AutoStart.cmd
+```
+
+This is a one-time setup. From then on, the narrator starts on its own within a second or
+two of Thumper launching — however you launch it, Steam or otherwise — and stops itself
+when you close the game. Nothing to run by hand afterward.
+
+To turn it back off, run `tools\setup\Uninstall-AutoStart.cmd`.
+
 ## Usage notes
 
-- **`F8`** on the level select screen reads your best rank for every section of that level.
 - Everything spoken is logged with timestamps to `logs/speech.log`.
 - The narrator stays silent during actual gameplay, by design.
+- **Updates check themselves.** Each time the narrator starts, it checks whether a newer
+  version has been released. If one has, it says so and tells you to press any `F1`-`F12`
+  key to install it — that installs the update and restarts the narrator automatically.
+  Nothing to download or run by hand. No internet, or no update available, is silent: the
+  narrator just starts normally either way.
 
 ## Troubleshooting
 
@@ -89,11 +107,25 @@ The reader locates Thumper's red selection bar on screen. A display scaling or c
 filter that changes how the game looks can interfere. Run
 `tools\ocr\ReadSelection.ps1` to see what it reads for the currently selected row.
 
-**Scores and ranks are wrong or missing.**
-Those come from Thumper's save file, not the screen. `tools\savedata\ParseSave.ps1` prints
-what it finds; if it cannot locate a save it will say so.
+**Scores and ranks are wrong or missing, or you hear "Could not find the Thumper install
+folder".**
+Those come from Thumper's save file, not the screen. The narrator looks for your install
+under every Steam library it can find automatically, which covers most setups. If it still
+can't find it (a non-Steam copy, or an unusual install location):
+
+1. Copy `config\game-dir.example.txt` to `config\game-dir.txt` in this same folder.
+2. Edit `game-dir.txt` and replace the path with your own Thumper install folder — the one
+   that directly contains `THUMPER_win8.exe`.
+3. Restart the narrator.
+
+`config\game-dir.txt` is specific to your machine, so it is not part of what you downloaded
+and never gets committed if you contribute changes back.
+
+`tools\savedata\ParseSave.ps1` prints what it finds if you want to check this directly.
 
 ## Uninstalling
 
-Delete the folder. Nothing is installed system-wide, no registry keys are written, and the
-game directory is never modified.
+If you set up auto-start (step 5), run `tools\setup\Uninstall-AutoStart.cmd` first —
+otherwise a scheduled task is left behind, pointing at files that no longer exist. Then
+delete the folder. Nothing else is installed system-wide, no registry keys are written, and
+the game directory is never modified.

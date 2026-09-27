@@ -17,6 +17,13 @@ tools/scan/state/
 # NVDA Controller Client - user-supplied, NV Access's to distribute, not ours
 lib/
 
+# Player's own Thumper install path - every machine's is different, see
+# config/game-dir.example.txt
+config/game-dir.txt
+
+# Build-Release.ps1 output - regenerated, not source
+dist/
+
 # Local Claude Code settings - machine-specific paths/permissions, not for public repo
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
