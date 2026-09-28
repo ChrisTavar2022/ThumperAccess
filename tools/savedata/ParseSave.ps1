@@ -23,6 +23,18 @@ param(
     [switch]$Json
 )
 
+# Thumper keeps TWO save slots, data_0.sav and data_1.sav, and alternates between them on
+# every save (data.index records which one is current). Always reading data_0 meant being
+# one save behind about half the time - observed 2026-09-28: data_1 showed 6 sections
+# played on level 1 while data_0, written 18 seconds earlier, still showed 5. The newest
+# file is the current one.
+function Get-CurrentSaveFile([string]$dir) {
+    $f = Get-ChildItem $dir -Filter 'data_*.sav' -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+    if ($f) { return $f.FullName }
+    return (Join-Path $dir "data_0.sav")
+}
+
 if (-not $Path) {
     # Don't assume the default Steam library - every player's machine is different, and
     # Thumper might not even be under Steam's default library. Three ways to find it, in
@@ -56,7 +68,7 @@ if (-not $Path) {
     $base = Join-Path $installDir "savedata"
     $dir = Get-ChildItem $base -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
     if (-not $dir) { Write-Error "No savedata folder found under $base"; exit 1 }
-    $Path = Join-Path $dir.FullName "data_0.sav"
+    $Path = Get-CurrentSaveFile $dir.FullName
 }
 if (-not (Test-Path $Path)) { Write-Error "Save file not found: $Path"; exit 1 }
 
@@ -91,6 +103,7 @@ foreach ($t in $tokens) {
             Rank     = ''
             Score    = 0
             Sections = New-Object System.Collections.ArrayList
+            Scores   = New-Object System.Collections.ArrayList
         }
         [void]$levels.Add($cur)
         continue
@@ -108,12 +121,13 @@ foreach ($t in $tokens) {
         $cur.Score = $score
     } else {
         [void]$cur.Sections.Add($rank)
+        [void]$cur.Scores.Add($score)
     }
 }
 
 # The overall rank is written twice in a row; drop the duplicate that lands in Sections.
 foreach ($lv in $levels) {
-    if ($lv.Sections.Count -gt 0 -and $lv.Sections[0] -eq $lv.Rank) { $lv.Sections.RemoveAt(0) }
+    if ($lv.Sections.Count -gt 0 -and $lv.Sections[0] -eq $lv.Rank) { $lv.Sections.RemoveAt(0); $lv.Scores.RemoveAt(0) }
 }
 
 # Each level stores its section ranks TWICE - once for normal play and once for PLAY+ -
@@ -130,6 +144,10 @@ foreach ($lv in $levels) {
     # draws); block 2 is the all-time best per section. Confirmed by restarting level 1:
     # block 1 reset to a single "B" while the level's best score and rank were untouched.
     $normal = $all[2..(1 + $n)]
+    # Each section entry is followed by the run's CUMULATIVE score at the end of that
+    # section (7800, 9500, 11700, ...; -1 when not played), so one section's own points are
+    # the difference from the previous entry.
+    $runScores = @($lv.Scores)[2..(1 + $n)]
     $plus = if (($all.Count) -ge (2 + 2 * $n)) { $all[(2 + $n)..(1 + 2 * $n)] } else { @() }
     [void]$parsed.Add([pscustomobject]@{
         Name     = $lv.Name
@@ -137,6 +155,7 @@ foreach ($lv in $levels) {
         Score    = $lv.Score
         Sections = $normal
         Plus     = $plus
+        RunScores = $runScores
     })
 }
 $levels = $parsed
@@ -150,6 +169,7 @@ if ($Json) {
             rank     = $_.Rank
             score    = $_.Score
             sections = @($_.Sections)   # current run
+            scores   = @($_.RunScores)  # current run, cumulative score after each section
             best     = @($_.Plus)       # all-time best per section
         }
     } | ConvertTo-Json -Depth 4 -Compress

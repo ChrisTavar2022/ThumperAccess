@@ -8,11 +8,6 @@
 - For uncertainties: Ask briefly, then act
 - Screen reader-friendly output: NO tables with `|`, use lists instead
 
-## Project Start
-
-For greetings ("Hello", "New project", "Let's go"):
-Read `docs/setup-guide.md` and conduct the setup interview. (Already completed for this project - see below.)
-
 ## Resume (catch up on an in-progress project)
 
 When the user says **"Resume Thumper"** (or just "Resume" / "Pick up where we left off"):
@@ -142,9 +137,11 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
    NVDA. `F8` (per-section best-rank detail) was deliberately removed
    2026-09-27 ahead of v1.0 - a product decision, not a missing feature. Known limitation,
    not a bug: the Controls screen can't speak single-letter key bindings (W/A/S/D/R) - a
-   confirmed Windows OCR limit, see "Pixel-diagnosis gotchas" above. Not done yet: the
-   post-section results/rank screen, and announcing screen titles on transition. See
-   `project_status.md` "Next Steps" for the live list.
+   confirmed Windows OCR limit, see "Pixel-diagnosis gotchas" above. Section results
+   are announced from the save file (the game saves after every section - not the results
+   screen via OCR) as the rank letter ONLY ("S") - a deliberate user decision so nothing long
+   plays mid-gameplay; don't add detail back without asking. Verified live 2026-09-28. Not done yet: announcing screen
+   titles on transition. See `project_status.md` "Next steps" for the live list.
 2. **Phase 2 (future): Gameplay obstacle auto-play assist** - for a chosen tough section,
    read the upcoming track/obstacle data ahead of time and have the mod take over input to
    play that section automatically. This is the one place static/dynamic reverse
@@ -181,12 +178,11 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
 - `README.md` - Public-facing project description (status, how it works, credits)
 - `INSTALL.md` - End-user setup instructions (NVDA Controller Client, running the narrator,
   auto-start, self-updating)
-- `docs/setup-guide.md` - Original template's project setup interview (Unity-specific, kept for reference)
-- `docs/localization-guide.md` - Text and announcement localization
-- `docs/menu-accessibility-checklist.md` - Menu implementation checklist
 - `docs/game-api.md` - Reverse-engineering findings (Ghidra/x64dbg), kept for Phase 2
 - `notes/session-2026-09-18-screen-reading-breakthrough.md` - The screen-reading method and
   every non-obvious gotcha behind it; read before changing the narrator
+- `notes/session-2026-09-28-section-results-and-checkpoints.md` - The two save slots, section
+  results from the save file, and the checkpoint screen's per-row detail and skipped-row fixes
 - `notes/session-2026-09-27-regressions-and-distribution.md` - Root causes for all four
   2026-09-27 bug fixes, the abandoned icon-classifier investigation, and the distribution
   tooling added that session; read before touching `Get-MenuPosition`, `FindBar`, the

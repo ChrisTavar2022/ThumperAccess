@@ -372,8 +372,12 @@ if (-not ("ThumperVision" -as [type])) {
 # --- NVDA speech ---
 # The NVDA controller client is NOT bundled - it is NV Access's DLL, not ours to
 # redistribute - so look for wherever the user put it. See INSTALL.md.
+# Current NVDA packages ship the 32-bit client as x86\nvdaControllerClient.dll; older ones
+# named it nvdaControllerClient32.dll. Accept either.
+$libDir = Join-Path (Split-Path (Split-Path $PSScriptRoot)) "lib"
 $dllCandidates = @(
-    (Join-Path $PSScriptRoot "..\..\lib\nvdaControllerClient32.dll"),
+    (Join-Path $libDir "nvdaControllerClient.dll"),
+    (Join-Path $libDir "nvdaControllerClient32.dll"),
     (Join-Path $PSScriptRoot "..\tolk\libs\x86\nvdaControllerClient32.dll")
 )
 $nvdaDll = $null
@@ -382,11 +386,22 @@ foreach ($c in $dllCandidates) {
 }
 if (-not $nvdaDll) {
     Write-Host ""
-    Write-Host "Cannot find nvdaControllerClient32.dll - speech is not available."
-    Write-Host "Download the NVDA Controller Client from nvaccess.org and copy the 32-bit"
-    Write-Host "nvdaControllerClient32.dll into this folder:"
-    Write-Host ("  " + (Join-Path (Split-Path (Split-Path $PSScriptRoot)) "lib"))
+    Write-Host "Cannot find the NVDA Controller Client - speech is not available."
+    Write-Host "Download it from https://download.nvaccess.org/releases/stable/ (the file"
+    Write-Host "ending in _controllerClient.zip), and copy x86\nvdaControllerClient.dll into:"
+    Write-Host ("  " + $libDir)
     Write-Host "See INSTALL.md for the full steps."
+    exit 1
+}
+# The package also contains x64, arm64 and arm64ec builds under the same file name, and
+# copying the wrong one only fails later as a cryptic "bad image format" error. The PE
+# header's machine field says which one it is: 0x14c is 32-bit x86.
+$peBytes = [System.IO.File]::ReadAllBytes($nvdaDll)
+$machine = [BitConverter]::ToUInt16($peBytes, [BitConverter]::ToInt32($peBytes, 0x3C) + 4)
+if ($machine -ne 0x14c) {
+    Write-Host ""
+    Write-Host "$nvdaDll is not the 32-bit (x86) version of the NVDA Controller Client."
+    Write-Host "Replace it with the one from the x86 folder of the download. See INSTALL.md."
     exit 1
 }
 $nsig = @"
@@ -536,6 +551,7 @@ function Read-BandText([System.Drawing.Bitmap]$shot, [double]$topFrac, [double]$
 # be mistaken for each other.
 function Read-GoldRow([System.Drawing.Bitmap]$shot, [int]$top, [int]$bot) {
     $wholeRaw = Read-Strip $shot $top $bot 0 0
+    if ($Verbose) { Write-Host "[gold raw] '$wholeRaw'" }
     if ($wholeRaw -match '^LEVEL\s+(\d+)\s*-\s*(.+)$') {
         $lvl = $Matches[1]
         $point = $Matches[2].Trim().TrimEnd('.').ToUpperInvariant()
@@ -987,18 +1003,62 @@ function Update-LevelData {
             $base = Join-Path $installDir "savedata"
             $d = Get-ChildItem $base -Directory -ErrorAction SilentlyContinue | Select-Object -First 1
             if (-not $d) { return }
-            $script:SavePath = Join-Path $d.FullName "data_0.sav"
+            $script:SavePath = $d.FullName
         }
-        if (-not (Test-Path $script:SavePath)) { return }
+        # Thumper alternates between two save slots, data_0.sav and data_1.sav, on every
+        # save - always reading data_0 left this one save behind about half the time. The
+        # newest slot is the current one.
+        $file = Get-ChildItem $script:SavePath -Filter 'data_*.sav' -ErrorAction SilentlyContinue |
+            Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+        if (-not $file) { return }
         # Re-read only when the game has actually saved, so finishing a level refreshes ranks.
-        $stamp = (Get-Item $script:SavePath).LastWriteTimeUtc
+        $stamp = "{0}|{1}" -f $file.Name, $file.LastWriteTimeUtc.Ticks
         if ($script:SaveStamp -eq $stamp -and $script:LevelData) { return }
+        $json = & $saveParser -Json -Path $file.FullName 2>$null
+        if (-not $json) { return }   # caught mid-write: leave the stamp, retry next time
         $script:SaveStamp = $stamp
-        $json = & $saveParser -Json -Path $script:SavePath 2>$null
-        if ($json) { $script:LevelData = $json | ConvertFrom-Json }
+        $old = $script:LevelData
+        # Two steps on purpose: Windows PowerShell's ConvertFrom-Json emits a JSON array as
+        # ONE object, so @($json | ConvertFrom-Json) wraps the whole array as a single item
+        # and every level's sections then get merged into one 220-long list.
+        $parsed = $json | ConvertFrom-Json
+        $script:LevelData = @($parsed)
+        if ($old) { Announce-SectionResults $old $script:LevelData }
     } catch {
         Write-Host "save read failed: $($_.Exception.Message)"
     }
+}
+
+# --- section results, announced straight from the save file ---
+# Thumper saves after every finished section (confirmed 2026-09-28: consecutive slot writes
+# 18 seconds apart, one more section filled in each time), so a changed save file IS the
+# results screen, as exact data and with no OCR. Compare the current run's sections before
+# and after: a section that is now played and differs in rank OR cumulative score was just
+# finished. Comparing the score as well catches replaying a section (restart from
+# checkpoint) and getting the same rank again. A restart that clears sections back to NONE
+# is not announced - nothing was just finished.
+#
+# Only the rank letter is spoken ("S"), nothing else - a product decision (user,
+# 2026-09-28): this plays mid-gameplay in a rhythm game, where the next obstacle can arrive
+# at any moment, so anything longer competes with the music and the player's attention.
+# Points, totals, "level complete" and new bests are left to the level select summary,
+# which is heard outside gameplay. If several sections changed in one save (rare), only the
+# furthest one is spoken - that is the section just finished.
+function Announce-SectionResults($old, $new) {
+    $rank = $null
+    foreach ($lv in $new) {
+        $prev = $old | Where-Object { $_.name -eq $lv.name } | Select-Object -First 1
+        if (-not $prev) { continue }
+        $ranks = @($lv.sections); $scores = @($lv.scores)
+        $pRanks = @($prev.sections); $pScores = @($prev.scores)
+        if ($ranks.Count -ne $pRanks.Count -or $scores.Count -ne $ranks.Count) { continue }
+        for ($i = 0; $i -lt $ranks.Count; $i++) {
+            if ($ranks[$i] -eq 'NONE') { continue }
+            if ($ranks[$i] -eq $pRanks[$i] -and $scores[$i] -eq $pScores[$i]) { continue }
+            $rank = $ranks[$i]
+        }
+    }
+    if ($rank) { Say $rank }
 }
 
 function Get-LevelInfo([int]$number) {
@@ -1036,21 +1096,24 @@ function Format-LevelSummary([int]$number) {
     return "$bestPart. $runPart"
 }
 
-# For the "Restart from checkpoint?" screen. Deliberately reads the CURRENT RUN's sections
-# ($lv.sections), not the all-time best ($lv.best) the way Format-LevelSummary favours -
-# this screen's own on-screen rank badges show this run's progress (including sections not
-# yet attempted this run), since that is what actually matters when deciding which
-# checkpoint to restart from, not your historical best.
-function Format-CheckpointSections([int]$number) {
+# For the "Restart from checkpoint?" screen: the rank and points for the one section the
+# highlighted checkpoint starts (checkpoint N = the start of section N - the list's top
+# entry is always the first section not yet played this run). Per row, not a summary of
+# every section on arrival: reading all 15 at once was too much to take in (user feedback
+# 2026-09-28), and the row you are on is the one you are deciding about.
+# Deliberately the CURRENT RUN ($lv.sections/$lv.scores), not the all-time best - the
+# screen's own rank badges show this run, and that is what matters when picking where to
+# restart from.
+function Format-CheckpointSection([int]$number, [int]$section) {
     $lv = Get-LevelInfo $number
     if (-not $lv) { return $null }
-    $sections = @($lv.sections)
-    $parts = @()
-    for ($i = 0; $i -lt $sections.Count; $i++) {
-        $r = $sections[$i]
-        $parts += if ($r -eq 'NONE') { "{0} not played" -f ($i + 1) } else { "{0} {1}" -f ($i + 1), $r }
-    }
-    return ("section ranks: {0}" -f ($parts -join ', '))
+    $ranks = @($lv.sections); $scores = @($lv.scores)
+    $i = $section - 1
+    if ($i -lt 0 -or $i -ge $ranks.Count) { return $null }
+    if ($ranks[$i] -eq 'NONE') { return "not played yet" }
+    if ($scores.Count -ne $ranks.Count) { return "rank {0}" -f $ranks[$i] }
+    $before = if ($i -gt 0 -and $scores[$i - 1] -gt 0) { $scores[$i - 1] } else { 0 }
+    return ("rank {0}, {1:N0} points" -f $ranks[$i], ($scores[$i] - $before))
 }
 
 $vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
@@ -1097,6 +1160,7 @@ $lastWidgetKind = ""
 $lastLevelSummary = 0
 $lastBoardKey = ""
 $titleTries = 0
+$goldReadAt = [DateTime]::MinValue
 $fKeyWas = $false
 # The highest "item N of M" total seen since the screen last changed. Backstop against
 # Get-MenuPosition undercounting on a noisy frame (see the level select item-count fixes
@@ -1104,14 +1168,20 @@ $fKeyWas = $false
 # it, so a lower total than one already confirmed is treated as a bad read, not a real
 # change. Reset alongside $lastSpoken wherever that already means "the screen changed."
 $script:knownTotal = 0
-# Which level's section-rank summary was last spoken on the "Restart from checkpoint?"
-# screen - reset everywhere $script:knownTotal is, for the same reason (a fresh screen
-# should announce its ranks again, even for a level already seen this session).
-$script:lastCheckpointLevel = 0
+# Read the save once up front, so the first section finished this session has a baseline
+# to be compared against (see Announce-SectionResults).
+Update-LevelData
+$saveCheckAt = Get-Date
 
 while ($true) {
     $shot = $null
     try {
+        # Section results: poll the save file about once a second. Cheap - it is only
+        # re-parsed when the game has actually written a new save.
+        if (((Get-Date) - $saveCheckAt).TotalMilliseconds -ge 1000) {
+            $saveCheckAt = Get-Date
+            Update-LevelData
+        }
         $shot = [ThumperVision]::Grab($vs.X, $vs.Y, $vs.Width, $vs.Height)
 
         # Which selection widget is on screen decides everything below. Both are checked on
@@ -1194,7 +1264,6 @@ while ($true) {
                         Say $phrase
                         $lastSpoken = ""
                         $script:knownTotal = 0
-                        $script:lastCheckpointLevel = 0
                     }
                 } elseif ($bar[0] -ge 0) {
                     # Level select - it is the screen with the red bar. Requiring the bar
@@ -1216,7 +1285,6 @@ while ($true) {
                             # clearing this lets it be re-announced after the summary.
                             $lastSpoken = ""
                             $script:knownTotal = 0
-                            $script:lastCheckpointLevel = 0
                         }
                     }
                 } elseif ($titleTries -lt 8) {
@@ -1307,8 +1375,21 @@ while ($true) {
 
             if ($changed) { $changeAt = Get-Date; $pendingRead = $true; $pendingTries = 0 }
 
+            # Heartbeat re-read. On the checkpoint list the gold box never moves - the list
+            # scrolls under it - and "LEVEL 1-3" vs "LEVEL 1-4" differ by one digit, too
+            # little for the profile test above. Caught 2026-09-28: a single Up press with
+            # 2 seconds of quiet either side was never announced. Re-reading every 250ms
+            # while the box sits still costs one OCR call; an unchanged row matches
+            # $lastSpoken and is not repeated.
+            if (-not $pendingRead -and ((Get-Date) - $goldReadAt).TotalMilliseconds -ge 250) {
+                $pendingRead = $true
+                $pendingTries = 0
+                $changeAt = [DateTime]::MinValue
+            }
+
             if ($pendingRead -and ((Get-Date) - $changeAt).TotalMilliseconds -ge $SettleMs) {
                 $pendingRead = $false
+                $goldReadAt = Get-Date
                 $phrase = Read-GoldRow $shot $gold[0] $gold[1]
                 if ($Verbose) { Write-Host ("[gold {0}-{1}] '{2}'" -f $gold[0], $gold[1], $phrase) }
                 if (-not $phrase -and $pendingTries -lt 4) {
@@ -1323,22 +1404,21 @@ while ($true) {
                     $key = ($phrase -replace '\s', '').ToUpperInvariant()
                     if ($key -ne $lastSpoken) {
                         $pendingTries++
-                        if ($key -eq $pendingPhrase -or $pendingTries -ge 4) {
+                        # A clean numbered checkpoint read is trusted without the usual
+                        # second agreeing read: 76 of 76 reads were exact in a verbose
+                        # run (2026-09-28), and the confirm step cost ~0.5s per row -
+                        # enough that pressing again before it finished skipped the row.
+                        # A mid-scroll crop does not match this strict pattern.
+                        $cleanCheckpoint = $phrase -match '^Level \d+, checkpoint \d+$'
+                        if ($key -eq $pendingPhrase -or $pendingTries -ge 4 -or $cleanCheckpoint) {
                             $lastSpoken = $key
                             $pendingPhrase = ""
                             $pendingTries = 0
-                            # On the checkpoint screen, say the section-rank summary once
-                            # per level, right after the first confirmed checkpoint row -
-                            # it does not change as you scroll the list (it is the same
-                            # fixed badge strip at the top regardless of which checkpoint is
-                            # highlighted), so repeating it on every row would be noise.
-                            if ($phrase -match '^Level (\d+), (?:checkpoint|current checkpoint)') {
-                                $cpLevel = [int]$Matches[1]
-                                if ($cpLevel -ne $script:lastCheckpointLevel) {
-                                    $script:lastCheckpointLevel = $cpLevel
-                                    $sections = Format-CheckpointSections $cpLevel
-                                    if ($sections) { $phrase = "$phrase. $sections" }
-                                }
+                            # On the checkpoint screen, add that checkpoint's own section
+                            # rank and points (see Format-CheckpointSection).
+                            if ($phrase -match '^Level (\d+), checkpoint (\d+)$') {
+                                $detail = Format-CheckpointSection ([int]$Matches[1]) ([int]$Matches[2])
+                                if ($detail) { $phrase = "$phrase, $detail" }
                             }
                             Write-Host "-> $phrase"
                             Say $phrase
@@ -1370,7 +1450,6 @@ while ($true) {
             $pendingPhrase = ""
             $lastSpoken = ""
             $script:knownTotal = 0
-            $script:lastCheckpointLevel = 0
         } else {
             $center = [int](($bar[0] + $bar[1]) / 2)
             $half = [int]($shot.Height * 0.028)

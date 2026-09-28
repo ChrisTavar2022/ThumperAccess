@@ -1,351 +1,69 @@
 # Project Status - Thumper Accessibility Mod
 
-## Setup Info
+Current state and next steps. The full history - methods, measurements, negative results,
+and why each design decision was made - is in the dated files in `notes/`, newest first.
 
-- **Game:** Thumper (Drool LLC)
-- **Install path:** auto-detected across Steam libraries (see `CLAUDE.md` -> Environment);
-  override in `config\game-dir.txt` if it ever fails to find it
-- **Engine:** Custom native C/C++ (SDL2 + FMOD) - NOT Unity/Unreal
-- **Architecture:** Thumper's exes are x64 (`THUMPER_win8.exe`, `THUMPER_dx9.exe`), but the
-  **dev machine's Windows install is ARM64** (Windows on ARM), not x64. Thumper therefore
-  runs under Windows' built-in x64 emulation. This matters for the hook DLL: it must be
-  built as x64 (to match the process we inject into), using either the native
-  ARM64-hosted cross compiler or the classic (emulated) x64-hosted compiler - both are
-  installed. x64dbg attaching to Thumper will also be debugging an emulated x64 process;
-  if hardware breakpoints behave oddly under emulation, that's the likely cause.
-- **User experience level:** Some programming experience, never fully completed a project
-- **Toolchain installed:**
-  - Visual Studio Build Tools 2022 (17.14.35) with the C++ workload (VCTools), including
-    both Hostarm64->x64 and Hostx64->x64 compilers
-  - x64dbg (was already present on the system)
-  - Microsoft OpenJDK 21 (aarch64 build, matching the ARM64 host) - required by Ghidra
-  - Ghidra 12.1.2 (PUBLIC, 2026-06-05) - extracted to `tools/ghidra_12.1.2_PUBLIC/`,
-    launch with `ghidraRun.bat`
-  - Tolk - cloned to `tools/tolk/` (source + prebuilt SAPI/NVDA-controller DLLs; `Tolk.dll`
-    itself still needs to be built from `tools/tolk/src/` when we write the hook DLL)
-  - MinHook - cloned to `tools/minhook/` (source + CMake, hooking library for intercepting
-    game functions)
-  - Skipped Cheat Engine (not on winget, installer bundles unwanted offers) - x64dbg covers
-    the same memory-scanning/debugging needs for this project
+## Current state (2026-09-28): preparing the public v1.0 release
 
-## Why this project deviates from the template
+Phase 1 (menus read aloud through NVDA) is feature-complete. It works by screen reading -
+screenshot, find the selection highlight, OCR it with Windows' built-in OCR - plus reading
+Thumper's unencrypted save file for exact scores and ranks. No reverse engineering, hooks
+or DLL injection. See `README.md` for how it works and `INSTALL.md` for setup.
 
-MelonLoader (the template's default mod loader) only works with Unity. Thumper is a
-native-engine game, so this project uses reverse engineering (Ghidra/x64dbg/Cheat Engine)
-and DLL injection instead. See `CLAUDE.md` -> "IMPORTANT: This project does NOT use the
-standard template workflow" for details.
+Run it with `tools\narrator\Start-Narrator.cmd` - the only entry point (it bypasses the
+default script execution policy for that one launch and selects 32-bit PowerShell, which the
+x86 NVDA controller client needs). Everything spoken is logged to `logs/speech.log`.
 
-## Feature Plan
+### Working
 
-1. **Phase 1 (in progress): Main menu narration** via Tolk
-2. **Phase 2 (future): Gameplay auto-play assist** for tough sections
+- Main menu, Options, Gameplay, Controls, Audio, Video, Credits, pause menu, dialogs, with
+  values, pip sliders and "item N of M"
+- Level select: level summary (best score, rank, S count, current run progress)
+- Leaderboards: level title and each row (rank, name, score)
+- "Restart from checkpoint?": each checkpoint with that section's own rank and points
+  (`"Level 1, checkpoint 6, rank S, 6,000 points"`, `"checkpoint 7, not played yet"`)
+- Section results, announced from the save file the moment the game saves after a section
+  - only the rank letter (`"S"`), by design so nothing long plays mid-gameplay - verified live 2026-09-28
+  (sections 7-11 spoken B, S, A, S, B, matching the save exactly)
+- Distribution: auto-detected install path (`config\game-dir.txt` override), auto-start
+  with the game, release packager (`tools/setup/Build-Release.ps1`), self-updating from
+  GitHub Releases
 
-## Leaderboards screen - WORKING (2026-09-20)
+### Known limitations (not bugs)
 
-The Leaderboards screen now reads aloud: `"Level 2, GLOBAL RANKING"` on entry and on level
-paging, then `"rank 11, SINTHREX, 279,300"` per row. Verified on levels 1 and 2 including
-long names, punctuation, page scrolling past row 10, and left/right level paging.
+- Controls screen: single-letter key bindings (W, A, S, D, R) are not spoken - a confirmed
+  Windows OCR limit on isolated single characters (`notes/session-2026-09-27-*`).
+- Leaderboards: the gold rank badge is not read; the `Y TOGGLE MODE` / `X TOGGLE VIEW`
+  keyboard bindings are unknown and deliberately not guessed.
+- Leaderboards level title OCR is occasionally blank on fast paging (8 of 9 announced in
+  testing). Reading the pip row under the title would make it exact; measurements are in
+  `notes/session-2026-09-20-leaderboards.md`.
 
-This screen needed a **second selection-widget detector**. It is the only screen that does
-not use the red highlight bar - the selected row is marked with a thin **gold outline**
-(border, not fill), so `FindBar` saw nothing and the narrator was silent here.
-`FindGoldBox` finds the pair of thin gold edges instead.
+## Next steps
 
-Deliberately **no "item N of M"** here: the row's rank number is its position and the list
-is hundreds long.
+1. Publish v1.0: bump `VERSION`, rebuild with `Build-Release.ps1`, tag, and create the
+   GitHub Release that `tools/updater/Check-Update.ps1` looks for.
+2. Announce screen titles on transition (only the selected row is announced today).
+3. Polish seen in `logs/speech.log`: a row very occasionally announced without its value on
+   the first read; a transient wrong count while a screen is still sliding in.
+4. Later: a single distributable app instead of PowerShell scripts, and an ARM64 NVDA
+   controller client to remove the 32-bit PowerShell requirement.
 
-The trap worth knowing (full detail in `notes/session-2026-09-20-leaderboards.md`): the
-label/value split must use the **near-white** pixel test and must **ignore the left screen
-margin**. A looser test catches Thumper's animated background beams sweeping through the
-gap, the margin then wins as "widest gap", and the row is announced as a mangled number
-("3,280,000" instead of "rank 3, KEVINGEM, 280,000"). It passed every static test before
-failing intermittently live.
+## Phase 2 (future): gameplay assist
 
-A user-reported bug - "sometimes changing levels does not announce the level" - was traced
-to four separate causes (coarse title-change trigger, mid-load fallthrough into the
-level-select branch, an empty title OCR being silently ignored, and a shared retry budget).
-Paging one level every 2.6s went from 4-of-9 announced to 8-of-9. It is **not 100%**: the
-title OCR still intermittently returns blank. If it needs to be exact, read the level from
-the **pip row** under the title (which pip is filled) instead of OCR-ing the title text.
+Read upcoming obstacle data during gameplay and optionally play a chosen tough section
+automatically. Screen reading cannot do this - it needs in-memory game state, so it is the
+one place reverse engineering is still needed. Static analysis in Ghidra was exhausted in
+July 2026 (4 techniques, all negative - `notes/session-2026-07-13-*`); a dynamic x64dbg
+session is the next step there. The tooling (`tools/ghidra_scripts/`, `tools/scan/`) is
+kept for it.
 
-Still open on this screen: the gold rank badge is not read (needs measuring like the volume
-pips, not OCR); the `Y TOGGLE MODE` / `X TOGGLE VIEW` keyboard bindings are unknown and
-were not guessed; and rows can be skipped when arrowing quickly, since each announcement
-costs two OCR calls plus a confirm re-read.
+## Development machine notes
 
-## Current Milestone (updated 2026-09-18): PHASE 1 MENUS WORKING
-
-**Menus now speak through NVDA.** This was achieved by *screen reading*, not by reverse
-engineering - see `notes/session-2026-09-18-screen-reading-breakthrough.md` for the full
-method and the many non-obvious gotchas.
-
-Run it with:
-```
-tools\narrator\Start-Narrator.cmd
-```
-This is the **only** entry point. `Start-Narrator.ps1` was deleted - having two similarly
-named launchers was confusing about which one actually starts speech.
-
-**Distribution:** the repo does not bundle `nvdaControllerClient32.dll` (NV Access's to
-distribute, not ours). The narrator looks for it at `lib/nvdaControllerClient32.dll`, then
-falls back to `tools/tolk/libs/x86/`, and exits with a clear message if absent. `lib/` is
-gitignored. `INSTALL.md` has the full setup.
-
-**Git:** the repo is `git init`ed with **no commits** - deliberately. The user commits from
-**WSL** (`/mnt/c/Users/chris/Documents/ThumperAccess`), not Windows-side git, and wants to
-choose when history starts. **Do not commit without asking.** `.gitattributes` normalises
-line endings to LF so Windows and WSL do not fight. `README.md`, `INSTALL.md` and `LICENSE`
-(MIT, Christopher Tavarez) are written and ready. Verified no game binaries, assets or
-saves would ever be tracked.
-**Use the .cmd, not the .ps1.** PowerShell's default execution policy is Restricted for
-this user, so running the .ps1 directly fails with "running scripts is disabled on this
-system". The .cmd sets bypass for that one launch only and changes no machine settings. It
-also selects 32-bit PowerShell, which is required because the vendored NVDA controller
-client is x86 and this host is ARM64. Stop with Ctrl+C or by closing the window.
-
-Starting it again automatically stops any previous instance - two narrators do not fail
-visibly, they just talk over each other.
-
-**Speech log:** everything spoken is appended, with timestamps, to `logs/speech.log`
-(gitignored). This is the record to read when picking the work back up - it shows exactly
-what the game announced and when.
-
-How it works: find the full-width red highlight bar that marks the selected row, split the
-row into label and value at its widest gap, OCR each side with Windows' built-in OCR
-engine, measure pip sliders geometrically instead of OCRing them, count the menu rows to
-derive "item N of M", and speak through `nvdaControllerClient32.dll`.
-
-Announcement format (agreed with the user):
-- `"PLAY, item 1 of 4"` - locked entries such as `PLAY +` are excluded from the count
-- `"FULLSCREEN, ON, item 1 of 6"`
-- `"VOLUME slider set to 3, range 1 to 12, item 1 of 1"`
-
-Verified on: main menu, Options, Audio (slider), Video (toggles, text values, Apply/
-Discard). Nested screens and value edits are announced.
-
-Tooling built this session (all reusable):
-- `tools/input/SendKey.ps1` - scan-code key injection; Thumper accepts it, so menus can be
-  driven programmatically without touching the keyboard
-- `tools/capture/Capture.ps1` - screenshots the fullscreen game (self-pruning)
-- `tools/ocr/ReadSelection.ps1` - one-shot read of the selected row, with `-XStart/-XEnd`
-  for isolating regions; the main debugging tool
-- `tools/ocr/ListItems.ps1`, `tools/ocr/ReadSlider.ps1` - diagnostics
-- `tools/narrator/` - the narrator itself
-
-**Phase 1 needs no hook, no DLL proxy, no MinHook, and no Tolk.** Reverse engineering is
-now only needed for Phase 2 (gameplay obstacle assist), which screen reading cannot solve.
-
-## Previous Milestone (reverse engineering - now parked, see above)
-
-Reverse engineering the menu system. First dynamic-scan session (2026-07-10) done -
-menu selection index NOT found as scannable Int32/float; see
-`notes/session-2026-07-10-memory-scan.md` for full methodology, negative results, and
-a promising press-correlated counter lead. Built a reusable screen-reader-friendly
-memory scanner at `tools/scan/MemScan.ps1` (user presses keys in-game on cue, Claude
-drives scanner from terminal - x64dbg GUI is not NVDA-accessible).
-
-Switched to static-first analysis (2026-07-13): `THUMPER_win8.exe` successfully
-imported into Ghidra and auto-analyzed headlessly (project at
-`tools/ghidra_project/ThumperProject`). Note the game exe had to be copied to
-`tools/ghidra_input/` first - `analyzeHeadless.bat` has a batch-parsing bug that chokes
-on the `(x86)` in the Steam install path. See
-`notes/session-2026-07-13-ghidra-import.md` for details/workaround.
-
-Headless string search (2026-07-13) found the UI architecture: Thumper's menus are NOT
-per-screen hardcoded logic - they run on a generic node-graph ("flow") scripting system
-loaded from `.flow` files (`start.flow`, `options.flow`, ...), with a shared
-`UIController` node type (`kUIControllerShowOptions`/`Start`/`Exit`) and navigation
-events (`ui_select_start`, `ui_go_back_start/end`). Also found a literal screen-name
-table (MainMenuScreen, OptionsScreen, LevelSelectScreen, CreditsScreen, LoadingScreen,
-...) at `1401eb718`-`1401eb840`. Cross-reference lookup came back empty for nearly all
-matches (likely table-base/indexed access, not resolved by default analysis) - not yet
-investigated. Full detail in `notes/session-2026-07-13-string-search.md`.
-
-Headless raw pointer/RVA scan for the screen-name table (2026-07-13, part 3) came back
-negative: no absolute pointer and no MSVC-style relative-offset (RVA) reference to the
-table exists anywhere in the binary. Best read: screens are likely selected by hashing
-the screen name (typical for flow/node-graph engines) rather than by indexing this
-table, meaning it's probably debug/label data, not the hook target we want. Deprioritizing
-this table; see `notes/session-2026-07-13-table-xref.md` for full method + results.
-
-Same scan repeated against the flow-node event-name cluster AND against 26 known
-real localization-key strings (2026-07-13, part 4) - both also came back negative (the
-3 raw hits in the flow-node scan were judged noise: one outside any disassembled
-function, two matching a coincidental page-aligned `.reloc` value). Three independent
-clusters, three scan variants, all empty: this points to a structural limitation (likely
-RIP-relative LEA addressing in code Ghidra's auto-analysis never disassembled/found as a
-function) rather than to any one table being wrong. Static byte-level scanning for
-pointers is now considered exhausted as a technique - see
-`notes/session-2026-07-13-flownode-lockey-xref.md`. Pivoting to a dynamic (running-game)
-x64dbg session next: a live breakpoint doesn't care whether Ghidra found the code
-statically, only that the CPU executes it.
-
-Tried the aggressive-analysis option anyway (2026-07-13, part 5): enabled Ghidra's
-"Aggressive Instruction Finder" (hunts for undiscovered code in gaps between known
-functions) and re-checked all 51 known strings from every session. Still 0/51 - a
-decisive result. This rules out "Ghidra just didn't disassemble the code" and points
-instead to these strings being **dead data**: likely leftover debug/logging text from
-Thumper's shared flow/node-graph engine library whose calling code was compiled out of
-this specific release build. Static analysis of these string clusters is now considered
-fully exhausted (4 independent techniques, all negative) - see
-`notes/session-2026-07-13-aggressive-analysis.md`. No further static scans planned;
-the dynamic x64dbg session is the sole next step for Phase 1.
-
-## Where we stopped (2026-09-27)
-
-The user is playing the game with the narrator to find what is actually broken in real
-use, rather than working down this list in order. **Pick up from whatever they report.**
-This has been true since 2026-09-20 and remains the working method.
-
-**2026-09-27 fixed four real bugs, live, in one session** - full root causes and fixes for
-each are in `notes/session-2026-09-27-regressions-and-distribution.md`, do not re-derive:
-level select's summary going silent after visiting Leaderboards (three compounding causes,
-plus a hardcoded save-file path that happened to break on this machine); the Audio VOLUME
-slider losing its label because the game's slider widget got denser than the bar-detector's
-threshold assumed; and level select's `item N of M` counts (`RESUME item 1 of 2` etc.) -
-this last one took three separate fixes to fully pin down (a stray animated background
-track line corrupting the row scan three different ways across different frames) and is
-verified stable across multiple live polls. That same session also added distribution
-tooling: configurable/auto-detected install path, auto-start via a login scheduled task, a
-player-only release packager, and self-updating via GitHub Releases.
-
-**Goal for today: public v1.0 release.** As part of getting there, **F8 / per-section
-best-rank detail was removed entirely** (was: press F8 on level select to hear every
-section's best rank) - a deliberate product decision, not a bug fix. `Format-LevelDetail`,
-its key handler, and all mentions in `README.md`/`INSTALL.md` are gone. The level summary
-itself (score/rank/S-count/current-run) is unaffected and still announces normally.
-
-A full regression pass across every screen then found two more real bugs, both fixed and
-verified live: the **Gameplay screen** miscounted its single HUD row as "item 2 of 2"
-(its title sat close enough to count as a phantom second row); and the **Controls screen**
-needed a dedicated reader built from scratch (label-far-left/value-far-right layout with
-icon glyphs, totally unlike every other settings screen) - it now reads all 8 rows with
-correct counts and correctly speaks multi-letter keys (`SPACE`). Single-letter keys (W, A,
-S, D, R) are a confirmed, verified-exhausted Windows OCR limitation, not a bug - see the
-notes file for what was tried. Full detail, including why `Get-TitleBox` was deliberately
-NOT reused (it merges content on the Video screen in a way that would have broken
-FULLSCREEN's row), is in the same session notes file - do not re-derive.
-
-**Last previously-unencountered screen covered: "Restart from checkpoint?"** (reached from
-RESTART mid-run - the user found it live, completely silent). Two real bugs fixed: this is
-the only screen with a gold-outline list AND a static red bar on screen together, and
-`FindBar` was matching the static bar first, so the actually-navigable gold list was never
-even checked (gold is now always checked, and takes priority whenever found); and the
-row-reading OCR was splitting the short centred "LEVEL N-X" phrase the same fragile way
-leaderboard rows are split, cutting it into pieces too small to OCR (fixed by reading it as
-one whole-row crop first). Now announces `"Level 1, checkpoint 14"` /
-`"Level 1, current checkpoint"` while scrolling, plus that level's current-run section
-ranks once per level. **A near-miss worth remembering**: Enter on this screen restarts
-gameplay immediately from whichever checkpoint is highlighted - there is no safe
-"browsing" step despite the "?" in the title - confirmed the hard way while investigating
-(no progress was lost - it landed on the current/farthest checkpoint, not the start - but
-it could have). Full writeup, including why, is in the session notes file.
-
-The pip-row job (exact level detection on Leaderboards, item 1a below) was started and
-stopped before any code was written - no half-finished changes are in the tree. The
-measurements needed for it are already recorded in
-`notes/session-2026-09-20-leaderboards.md`, so it can start from those rather than
-re-probing the screen.
-
-## Next Steps
-
-1. ~~Level select screen~~ - done, including item counts (fixed 2026-09-27, see above).
-1a. ~~Leaderboards screen~~ - done 2026-09-20, see above. Follow-ups, none blocking:
-   - Read the gold rank badge on each row (measure/classify it like the volume pips - OCR
-     turns its dithering into speckle).
-   - Find the keyboard bindings for `Y TOGGLE MODE` / `X TOGGLE VIEW`. Not guessed, since
-     only ESC/Enter/arrows are confirmed. TOGGLE VIEW is likely an "around my rank" view,
-     which is the one a player actually cares about.
-   - Rows get skipped when arrowing quickly (two OCR calls + a confirm re-read per row).
-     Time the OCR calls before tuning `-SettleMs`.
-   - Untested: `VIEW PROFILE` (Enter on a row), and the per-level board reached from level
-     select via `X LEADERBOARDS`.
-2. **Results / rank screen - THE NEXT JOB.** The user's original ask ("if you score an S on
-   a section"), and they confirmed they want it announced the same way the menus are now.
-   Blocked only on seeing one: it appears after finishing a section, so capture it during a
-   real run before designing the reader. Open questions to answer from that capture:
-   - Does it have a red highlight bar? If not, the bar-based path does not apply and it
-     needs a dedicated reader keyed off the screen title, like `Get-TitleBox` does.
-   - Which values are on screen vs already in the save file. Prefer the save file: the rank
-     and score are there as exact data, and a file-watcher on `data_0.sav` could announce
-     the real rank the moment the game writes it, with no OCR at all.
-3. **Decode `savedata/<steamid>/data_0.sav`** - it is plain, unencrypted, length-prefixed
-   records containing literal `RANK_S`/`RANK_A`/... strings and int32 scores per level.
-   This would give ranks as real data, and allow a file watcher to announce the true rank
-   the moment the game saves. Partially mapped; see the session notes.
-4. Announce screen titles on transition (currently only the selected row is announced, so
-   moving between screens is inferred rather than stated).
-5. Occasional polish, both visible in `logs/speech.log`:
-   - A row is very occasionally announced without its value on the first read. There is a
-     retry fallback now, but it is not perfect.
-   - A transient wrong count can be spoken while a screen is still sliding in (observed:
-     "PLAY, item 1 of 2" immediately before the correct "PLAY, item 1 of 4"). The
-     two-agreeing-reads gate catches most of these; raising `-SettleMs` above its default
-     of 180 would catch more, at the cost of announcement latency.
-6. Consider a C# rewrite as a single distributable app, and an ARM64 NVDA controller
-   client to remove the 32-bit PowerShell requirement.
-
-### Level select screen - WORKING, including item counts (fixed 2026-09-27)
-
-Announces on level change. Verified:
-- `"Level 1, score 115,250, rank A, 14 of 15 sections played, 6 S ranks"`
-
-(**F8 / per-section detail was removed 2026-09-27**, ahead of the public v1.0 release - see
-"Removed" note below. The section-list examples in this file are historical.)
-
-Both match the screen exactly. The title is located with `Get-TitleBox` (tallest text band
-near the top, cropped to its glyph bounds) - hardcoded crop fractions failed both ways and
-should not be reattempted.
-
-Announcements now report the **all-time best** alongside the current run, because reporting
-only the current run was misleading after a restart:
-- `"Level 1, best score 115,250, rank A, 8 S ranks. current run 1 of 15 sections"`
-
-This also confirms block 2 = all-time best: it shows 8 S ranks where the current-run block
-showed 6, and survived the level 1 restart intact.
-
-**Fixed 2026-09-27, verified live and stable across multiple polls** ("PRACTICE, item 3 of
-3" on Level 2, previously "2 of 2"). User-reported live; two earlier fix attempts
-(reference pitch taken next to the selection instead of the median; grouping rows by pitch
-multiples instead of list adjacency) were already in the code and had not fully resolved
-it. Root cause was a stray animated background track line bleeding into the row scan,
-corrupting the count three different ways across different frames - full diagnostic detail
-and all three fixes (`Get-BrightSubBand` recovery, an absolute-floor `enabled` check, and a
-sticky high-water-mark total) are in
-`notes/session-2026-09-27-regressions-and-distribution.md`.
-
-### Older notes on this screen
-
-`tools/savedata/ParseSave.ps1` **works and is verified** (9 levels; level1 = 115,250 /
-rank A / 15 sections / 14 played, matching the screen exactly).
-
-The narrator wiring is written but **the level summary does not announce yet**. Design
-agreed with the user: summary automatically, full section list on **F8** (confirmed F8 and
-F9 do nothing in-game). The blocker is reading the big "LEVEL N" title:
-
-- Full-width crop of the title band -> OCR returns empty (same failure as a tight "MSAA"
-  crop: small text on a wide, mostly blank canvas).
-- Centre crop at x 0.25-0.75 with band y 0.03-0.14 -> reads `"LEVELL-"` / `"LEVELA---"`.
-  The band reaches into the level-selector pip row below the title, which OCR renders as
-  dashes, and the digit is lost.
-- Tightening the band to y 0.025-0.115 -> empty again (cut too far).
-
-So the band needs to end just above the pips while keeping the full glyph height. Better
-than guessing fractions: locate the title's actual bounding box with `Blobs`/`RowCounts`
-(as the menu-row band detector already does) and crop to it, rather than hardcoding
-proportions. Do that next.
-
-Also broken on this screen: **`Get-MenuPosition` gives wrong counts here** - it reported
-"RESUME, item 1 of 3", "RESTART, item 1 of 2", "PRACTICE, item 1 of 1". The rank-letter
-grid and score line above produce extra bands, and the even-spacing run logic then only
-extends downward from the selection, so the index is always 1. It needs to ignore bands
-that are not part of the RESUME/RESTART/PRACTICE group.
-
-### Parked (Phase 2 only)
-
-- ~~Static analysis~~ - fully exhausted, 4 techniques, all negative.
-- **Dynamic x64dbg session** - still the path to real in-memory game state, now needed
-  only for Phase 2 gameplay assist. Note this is far more tractable than in July: the
-  narrator tooling means Claude can drive input and read resulting state automatically,
-  so input/state correlation no longer depends on slow manual reporting.
-- DLL proxy / MinHook / Tolk - not needed for Phase 1 at all.
+- The dev machine runs **Windows on ARM64**; Thumper's exes are x64 and run under
+  emulation. The vendored NVDA controller client is x86, hence the 32-bit PowerShell.
+- Installed for Phase 2: Ghidra 12.1.2 (`tools/ghidra_12.1.2_PUBLIC/`, gitignored), x64dbg,
+  OpenJDK 21, VS Build Tools 2022. `analyzeHeadless.bat` chokes on the `(x86)` in the Steam
+  path - copy the exe to `tools/ghidra_input/` first.
+- Synthetic input for testing: `tools/input/SendKey.ps1` (scan codes; Thumper accepts
+  them). Never send Enter on an unfamiliar screen - see `CLAUDE.md`.

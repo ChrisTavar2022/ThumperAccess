@@ -1,131 +1,146 @@
-# Installing
+# Installing Thumper Access
 
-There is nothing to compile. This is a set of PowerShell scripts that run alongside the
-game.
+This guide takes you from nothing to hearing Thumper's menus spoken, in about ten minutes.
+There is nothing to compile and no installer: the mod is a folder of scripts that runs
+alongside the game.
 
-## 1. What you need first
+## 1. What you need
 
 - **Windows 10 or 11**
-- **Thumper**, installed through Steam
-- **NVDA**, running — this mod speaks through NVDA rather than providing its own voice
+- **Thumper**, from [Steam](https://store.steampowered.com/app/356400/Thumper/)
+- **NVDA**, from [nvaccess.org](https://www.nvaccess.org/download/). The mod speaks
+  through NVDA only. JAWS, Narrator and other screen readers are not supported.
 
-## 2. Get the files
+## 2. Download the mod
 
-```
-git clone https://github.com/<your-user>/ThumperAccess.git
-```
+1. Go to the
+   [latest release](https://github.com/ChrisTavar2022/ThumperAccess/releases/latest) page.
+2. Under "Assets", download the ZIP file.
+3. Extract it anywhere you like, for example your Documents folder. You get a folder named
+   `ThumperAccess`.
 
-Or download the ZIP from GitHub and extract it anywhere you like. No install directory is
-required and nothing is written into the game folder.
+Nothing goes into the game's own folder, and the game's files are never changed.
 
 ## 3. Add the NVDA Controller Client
 
-**This is the one manual step, and the mod will not speak without it.**
+**This is the one manual step, and the mod can't speak without it.**
 
-The NVDA Controller Client is NV Access's library, not part of this project, so it is not
-bundled here.
+The NVDA Controller Client is a small file from NV Access that lets other programs speak
+through NVDA. It belongs to NV Access, so it can't be included in this download.
 
-1. Download the **NVDA Controller Client** package from
-   [nvaccess.org](https://www.nvaccess.org/) (it is published alongside NVDA, under
-   "developer resources" / the controllerClient download).
-2. Open it and find **`nvdaControllerClient32.dll`** — the **32-bit** one, in the `x86`
-   folder. The 64-bit build will not work; see the note below.
-3. Create a folder called `lib` in the root of this project and copy the DLL into it:
+1. Go to [download.nvaccess.org/releases/stable](https://download.nvaccess.org/releases/stable/).
+2. Download the file whose name ends in **`_controllerClient.zip`**, for example
+   `nvda_2026.2_controllerClient.zip`.
+3. Open that ZIP. It has four folders: `arm64`, `arm64ec`, `x64` and `x86`.
+4. Open the **`x86`** folder and copy **`nvdaControllerClient.dll`**. It must be the one
+   from `x86`, even on a 64-bit or ARM computer (see the note below).
+5. In your `ThumperAccess` folder, create a new folder named **`lib`**, and paste the file
+   into it. It should end up here:
 
 ```
-ThumperAccess\lib\nvdaControllerClient32.dll
+ThumperAccess\lib\nvdaControllerClient.dll
 ```
 
-If the DLL is missing, the narrator exits immediately and tells you exactly where to put
-it.
+If the file is missing, or is from the wrong folder, the narrator tells you so when it
+starts, and exits.
 
-### Why the 32-bit DLL
-
-The launcher runs the narrator under 32-bit PowerShell. The controller client has to match
-the architecture of the process calling it, and the 32-bit build works everywhere —
-including on ARM64 Windows machines, where the 64-bit build cannot be loaded by the ARM64
-PowerShell at all. This was developed on an ARM64 device for exactly that reason.
+**Why x86?** The narrator runs as a 32-bit program so that it works the same way on every
+Windows computer, including ARM ones, and a 32-bit program can only load the 32-bit (x86)
+file. An older copy named `nvdaControllerClient32.dll` also works.
 
 ## 4. Run it
 
-Start NVDA, start Thumper, then run:
+1. Start NVDA.
+2. Start Thumper.
+3. In the `ThumperAccess` folder, open `tools`, then `narrator`, and run
+   **`Start-Narrator.cmd`**.
 
-```
-tools\narrator\Start-Narrator.cmd
-```
+You should hear "Thumper narrator ready". Move through the menu with the arrow keys and
+each item is spoken, for example "PLAY, item 1 of 4".
 
-You should hear "Thumper narrator ready". Move through the menu and each item is spoken,
-for example `PLAY, item 1 of 4`.
+To stop it, close the narrator window or press `Ctrl+C` in it. Starting it again replaces a
+copy that is already running, so you never get two voices at once.
 
-**Use the `.cmd`, not the `.ps1`.** PowerShell blocks unsigned scripts by default, so
-running the `.ps1` directly fails with *"running scripts is disabled on this system"*. The
-`.cmd` sets an execution-policy bypass for that single launch and changes nothing about
-your machine's settings.
+**Run the `.cmd` file, not the `.ps1`.** Windows blocks PowerShell scripts by default, so
+opening `ThumperNarrator.ps1` directly fails with "running scripts is disabled on this
+system". The `.cmd` allows the script for that one launch only, and changes no settings on
+your computer.
 
-To stop it, press `Ctrl+C` in that window or just close the window. Launching it again
-automatically replaces a running copy, so you can never end up with two voices at once.
+## 5. Optional: start it automatically with the game
 
-## 5. (Optional) Start it automatically with the game
-
-By default you run `Start-Narrator.cmd` yourself each time. To skip that:
+Instead of running `Start-Narrator.cmd` every time, you can have it start by itself.
+Run this once:
 
 ```
 tools\setup\Install-AutoStart.cmd
 ```
 
-This is a one-time setup. From then on, the narrator starts on its own within a second or
-two of Thumper launching — however you launch it, Steam or otherwise — and stops itself
-when you close the game. Nothing to run by hand afterward.
+From then on, whenever you sign in to Windows, a small background watcher waits for
+Thumper. The narrator starts a second or two after the game does, however you launch it,
+and stops when you close the game. No administrator rights are needed.
 
-To turn it back off, run `tools\setup\Uninstall-AutoStart.cmd`.
+To turn this off again, run `tools\setup\Uninstall-AutoStart.cmd`.
 
-## Usage notes
+## Updates
 
-- Everything spoken is logged with timestamps to `logs/speech.log`.
-- The narrator stays silent during actual gameplay, by design.
-- **Updates check themselves.** Each time the narrator starts, it checks whether a newer
-  version has been released. If one has, it says so and tells you to press any `F1`-`F12`
-  key to install it — that installs the update and restarts the narrator automatically.
-  Nothing to download or run by hand. No internet, or no update available, is silent: the
-  narrator just starts normally either way.
+Each time the narrator starts, it checks for a newer release. If there is one, it tells
+you, and pressing any function key from `F1` to `F12` downloads and installs it, then
+restarts the narrator. Your `lib` folder and settings are kept. With no internet
+connection, or no update available, it just starts normally.
+
+## Good to know
+
+- **During gameplay** the mod stays quiet except for one thing: when you finish a section,
+  it says the rank you earned, just the letter, such as "S" or "A". Your points and
+  totals are read on the level select screen instead, outside of play.
+- **The mod never presses keys.** It only reads the screen, so your controls behave exactly
+  as normal.
+- **Everything spoken is written to a log**, `logs\speech.log`, with the time. If
+  something sounds wrong, that log shows exactly what was said and when, which helps a lot
+  when reporting a problem.
 
 ## Troubleshooting
 
-**Nothing is spoken, but the window says it started.**
-Check NVDA is actually running. The narrator speaks through NVDA and does nothing if it is
-not there.
+**The narrator window opens, but nothing is spoken.**
+Make sure NVDA is running. The mod speaks through NVDA and is silent without it.
 
-**"Cannot find nvdaControllerClient32.dll".**
-Step 3 was missed, or the 64-bit DLL was copied instead of the 32-bit one. The file must be
-named `nvdaControllerClient32.dll`.
+**"Cannot find the NVDA Controller Client".**
+Step 3 was missed, or the file is in the wrong place. It must be
+`ThumperAccess\lib\nvdaControllerClient.dll`: in a folder named `lib`, directly inside the
+`ThumperAccess` folder.
+
+**"...is not the 32-bit (x86) version of the NVDA Controller Client".**
+The file was copied from the `x64`, `arm64` or `arm64ec` folder. Replace it with the one
+from the `x86` folder.
 
 **"Running scripts is disabled on this system".**
-The `.ps1` was run directly. Use `tools\narrator\Start-Narrator.cmd`.
+The `.ps1` file was opened directly. Run `tools\narrator\Start-Narrator.cmd` instead.
 
-**Menu items are misread, or nothing is announced as you move.**
-The reader locates Thumper's red selection bar on screen. A display scaling or colour
-filter that changes how the game looks can interfere. Run
-`tools\ocr\ReadSelection.ps1` to see what it reads for the currently selected row.
+**Menu items are misread, or nothing is announced when you move.**
+The mod finds Thumper's red highlight bar on screen. Anything that changes how the game
+looks can get in the way, such as Windows colour filters, high contrast mode, or a
+magnifier zoomed over the game. Running the game fullscreen gives the best results.
 
-**Scores and ranks are wrong or missing, or you hear "Could not find the Thumper install
-folder".**
-Those come from Thumper's save file, not the screen. The narrator looks for your install
-under every Steam library it can find automatically, which covers most setups. If it still
-can't find it (a non-Steam copy, or an unusual install location):
+**Scores and ranks are missing, or you hear "Could not find the Thumper install folder".**
+Scores and ranks come from Thumper's save file, which the mod finds by looking through
+all of your Steam library folders. If your copy of Thumper is somewhere unusual:
 
-1. Copy `config\game-dir.example.txt` to `config\game-dir.txt` in this same folder.
-2. Edit `game-dir.txt` and replace the path with your own Thumper install folder — the one
-   that directly contains `THUMPER_win8.exe`.
+1. In the `ThumperAccess\config` folder, copy `game-dir.example.txt` and name the copy
+   `game-dir.txt`.
+2. Open `game-dir.txt` and replace the example path with your own Thumper folder, the one
+   that contains `THUMPER_win8.exe`.
 3. Restart the narrator.
 
-`config\game-dir.txt` is specific to your machine, so it is not part of what you downloaded
-and never gets committed if you contribute changes back.
-
-`tools\savedata\ParseSave.ps1` prints what it finds if you want to check this directly.
+**Still stuck?** Open an issue on the
+[project's GitHub page](https://github.com/ChrisTavar2022/ThumperAccess/issues), describe
+what happened, and include the end of `logs\speech.log` if you can.
 
 ## Uninstalling
 
-If you set up auto-start (step 5), run `tools\setup\Uninstall-AutoStart.cmd` first —
-otherwise a scheduled task is left behind, pointing at files that no longer exist. Then
-delete the folder. Nothing else is installed system-wide, no registry keys are written, and
-the game directory is never modified.
+1. If you turned on auto-start (step 5), run `tools\setup\Uninstall-AutoStart.cmd` first.
+   Otherwise a Windows scheduled task is left behind, pointing at files that no longer
+   exist.
+2. Delete the `ThumperAccess` folder.
+
+That's everything. The mod writes no registry keys, installs nothing system-wide, and never
+touches the game's folder.
