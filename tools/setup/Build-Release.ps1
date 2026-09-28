@@ -45,7 +45,15 @@ foreach ($f in $files) {
     if (-not (Test-Path $src)) { throw "Build-Release.ps1's file list is out of date - missing: $f" }
     $dst = Join-Path $OutDir $f
     New-Item -ItemType Directory -Path (Split-Path $dst) -Force | Out-Null
-    Copy-Item $src $dst
+    if ($f -like '*.cmd') {
+        # cmd.exe misparses batch files with bare-LF line endings. .gitattributes asks for
+        # CRLF, but a file written from WSL or by a tool can still sit on disk as LF (two
+        # launchers did on 2026-09-28), and this package is built from the working copy.
+        $text = [System.IO.File]::ReadAllText($src) -replace "`r?`n", "`r`n"
+        [System.IO.File]::WriteAllText($dst, $text, (New-Object System.Text.ASCIIEncoding))
+    } else {
+        Copy-Item $src $dst
+    }
 }
 
 # The player drops their own NVDA controller client here (see INSTALL.md step 3) - ship
