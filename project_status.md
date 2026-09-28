@@ -3,7 +3,14 @@
 Current state and next steps. The full history - methods, measurements, negative results,
 and why each design decision was made - is in the dated files in `notes/`, newest first.
 
-## Current state (2026-09-28): preparing the public v1.0 release
+## Current state (2026-09-28): v1.0.0 released publicly
+
+Published 2026-09-28: the repo is public, and release v1.0.0
+(https://github.com/ChrisTavar2022/ThumperAccess/releases/tag/v1.0.0) carries
+`ThumperAccess.zip`, verified end to end (anonymous download; an older install found and
+installed it through the self-updater). To ship an update: bump `VERSION`, run
+`tools\setup\Build-Release.ps1 -Zip`, commit, push and `gh release create vX.Y.Z
+dist/ThumperAccess.zip` - both from WSL, where the GitHub login lives.
 
 Phase 1 (menus read aloud through NVDA) is feature-complete. It works by screen reading -
 screenshot, find the selection highlight, OCR it with Windows' built-in OCR - plus reading
@@ -41,12 +48,10 @@ x86 NVDA controller client needs). Everything spoken is logged to `logs/speech.l
 
 ## Next steps
 
-1. Publish v1.0: bump `VERSION`, rebuild with `Build-Release.ps1`, tag, and create the
-   GitHub Release that `tools/updater/Check-Update.ps1` looks for.
-2. Announce screen titles on transition (only the selected row is announced today).
-3. Polish seen in `logs/speech.log`: a row very occasionally announced without its value on
+1. Announce screen titles on transition (only the selected row is announced today).
+2. Polish seen in `logs/speech.log`: a row very occasionally announced without its value on
    the first read; a transient wrong count while a screen is still sliding in.
-4. Later: a single distributable app instead of PowerShell scripts, and an ARM64 NVDA
+3. Later: a single distributable app instead of PowerShell scripts, and an ARM64 NVDA
    controller client to remove the 32-bit PowerShell requirement.
 
 ## Phase 2 (future): gameplay assist
