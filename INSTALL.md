@@ -15,9 +15,17 @@ alongside the game.
 
 1. Go to the
    [latest release](https://github.com/ChrisTavar2022/ThumperAccess/releases/latest) page.
-2. Under "Assets", download the ZIP file.
-3. Extract it anywhere you like, for example your Documents folder. You get a folder named
-   `ThumperAccess`.
+2. Under "Assets", download **`ThumperAccess.zip`**.
+3. **Unblock the ZIP before extracting it.** Windows marks files downloaded from the
+   internet, and without this step it can show a security prompt every time you run one of
+   the mod's `.cmd` files. In File Explorer, select the ZIP and press `Alt+Enter` to open
+   its Properties. On the General tab, check the **Unblock** checkbox near the bottom,
+   then press Enter. If there is no Unblock checkbox, the file is already unblocked.
+4. Extract the ZIP anywhere you like, for example your Documents folder. With the ZIP
+   selected, press the Applications key (or `Shift+F10`), choose **Extract All**, and
+   accept the suggested destination. Extract All puts everything in a new folder named
+   after the ZIP, and inside that is the mod's own **`ThumperAccess`** folder. That inner
+   folder is the one the rest of this guide means by "your `ThumperAccess` folder".
 
 Nothing goes into the game's own folder, and the game's files are never changed.
 
@@ -34,8 +42,9 @@ through NVDA. It belongs to NV Access, so it can't be included in this download.
 3. Open that ZIP. It has four folders: `arm64`, `arm64ec`, `x64` and `x86`.
 4. Open the **`x86`** folder and copy **`nvdaControllerClient.dll`**. It must be the one
    from `x86`, even on a 64-bit or ARM computer (see the note below).
-5. In your `ThumperAccess` folder, create a new folder named **`lib`**, and paste the file
-   into it. It should end up here:
+5. In your `ThumperAccess` folder, open the **`lib`** folder and paste the file there. The
+   `lib` folder comes with the mod and holds a short note reminding you of this step. The
+   file should end up here:
 
 ```
 ThumperAccess\lib\nvdaControllerClient.dll
@@ -81,11 +90,14 @@ and stops when you close the game. No administrator rights are needed.
 
 To turn this off again, run `tools\setup\Uninstall-AutoStart.cmd`.
 
+If you later move or rename the `ThumperAccess` folder, run `Install-AutoStart.cmd` again
+from its new location, since auto-start remembers where the folder was.
+
 ## Updates
 
 Each time the narrator starts, it checks for a newer release. If there is one, it tells
-you, and pressing any function key from `F1` to `F12` downloads and installs it, then
-restarts the narrator. Your `lib` folder and settings are kept. With no internet
+you, and pressing any function key from `F1` to `F12` while Thumper is the active window
+downloads and installs it, then restarts the narrator. Your `lib` folder and settings are kept. With no internet
 connection, or no update available, it just starts normally.
 
 ## Good to know

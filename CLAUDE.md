@@ -87,8 +87,12 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
   file it packages, so it never drifts from what's actually shipped.
 - **Self-updating:** `VERSION` (repo root) + `tools/updater/Check-Update.ps1` (checks
   GitHub Releases for `ChrisTavar2022/ThumperAccess`, never throws) +
-  `Install-Update.ps1` (downloads + merges over the existing install - never touches `lib/`
-  or `config/game-dir.txt`, since the release zip contains neither). **Never call `exit`
+  `Install-Update.ps1` (downloads + merges over the existing install - never touches the
+  player's NVDA DLL or `config/game-dir.txt`, since the release zip contains neither; it
+  does ship `lib/PUT-NVDA-DLL-HERE.txt` so the folder exists). The zip holds one top-level
+  `ThumperAccess/` folder with `/` separators - `Build-Release.ps1 -Zip` writes entries by
+  hand because PS 5.1's `Compress-Archive` and `ZipFile` both write backslashes; the updater
+  unpacks to temp and copies from that inner folder. **Never call `exit`
   inside a script meant to run in-process via `&` from the narrator** - it kills the whole
   narrator process, not just that call; use normal terminating errors instead, caught by
   the caller. No release has been published yet as of 2026-09-27 (no git tags) - see

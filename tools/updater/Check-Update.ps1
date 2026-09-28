@@ -17,6 +17,9 @@ function Write-Result([bool]$available, [string]$version = "", [string]$url = ""
 }
 
 try {
+    # GitHub only accepts TLS 1.2+, which older .NET defaults in Windows PowerShell 5.1 do
+    # not always enable - without this the check silently never finds an update.
+    [Net.ServicePointManager]::SecurityProtocol = [Net.ServicePointManager]::SecurityProtocol -bor [Net.SecurityProtocolType]::Tls12
     $versionFile = Join-Path $PSScriptRoot "..\..\VERSION"
     $current = if (Test-Path $versionFile) { (Get-Content $versionFile -Raw).Trim() } else { "0.0.0" }
 

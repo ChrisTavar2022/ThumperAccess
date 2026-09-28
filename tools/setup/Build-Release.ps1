@@ -48,9 +48,20 @@ foreach ($f in $files) {
     Copy-Item $src $dst
 }
 
-# The player drops their own NVDA controller client here (see INSTALL.md step 3) - create
-# the folder so that is the only thing left to do, not "first make a folder, then...".
-New-Item -ItemType Directory -Path (Join-Path $OutDir "lib") -Force | Out-Null
+# The player drops their own NVDA controller client here (see INSTALL.md step 3) - ship
+# the folder so that is the only thing left to do, not "first make a folder, then...". It
+# needs a file in it: Compress-Archive silently drops empty folders, so an empty lib\ would
+# never reach the player. The updater merging this note over an install is harmless - it
+# never overwrites the DLL itself.
+$libDir = Join-Path $OutDir "lib"
+New-Item -ItemType Directory -Path $libDir -Force | Out-Null
+Set-Content -Path (Join-Path $libDir "PUT-NVDA-DLL-HERE.txt") -Encoding ASCII -Value @(
+    "Put nvdaControllerClient.dll in this folder.",
+    "",
+    "Get it from https://download.nvaccess.org/releases/stable/ - download the file ending",
+    "in _controllerClient.zip, open it, and copy nvdaControllerClient.dll from its x86",
+    "folder into this lib folder. See INSTALL.md, step 3."
+)
 
 # README.md is mostly player-facing already, but its "Layout" and "Notes for contributors"
 # sections describe dev-only files (notes/, tools/ocr, project_status.md, ...) that are not
@@ -69,7 +80,24 @@ Get-ChildItem $OutDir -Recurse -File | ForEach-Object {
 if ($Zip) {
     $zipPath = "$OutDir.zip"
     if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-    Compress-Archive -Path "$OutDir\*" -DestinationPath $zipPath
+    # The folder itself, not its contents: the zip then holds a single ThumperAccess\ folder,
+    # so every extract tool (Windows "Extract All", 7-Zip "Extract here", ...) produces the
+    # same tidy folder instead of scattering files. Install-Update.ps1 expects this layout.
+    # Entries are added one by one with explicit "/" names: under Windows PowerShell 5.1 both
+    # Compress-Archive and ZipFile.CreateFromDirectory write backslash separators, which some
+    # extract tools turn into files literally named "ThumperAccess\tools\...".
+    Add-Type -AssemblyName System.IO.Compression, System.IO.Compression.FileSystem
+    $top = Split-Path $OutDir -Leaf
+    $archive = [System.IO.Compression.ZipFile]::Open($zipPath, [System.IO.Compression.ZipArchiveMode]::Create)
+    try {
+        Get-ChildItem $OutDir -Recurse -File | ForEach-Object {
+            $name = "$top/" + $_.FullName.Substring($OutDir.Length + 1).Replace('\', '/')
+            [void][System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $_.FullName, $name,
+                [System.IO.Compression.CompressionLevel]::Optimal)
+        }
+    } finally {
+        $archive.Dispose()
+    }
     Write-Host ""
     Write-Host "Zipped: $zipPath"
 }

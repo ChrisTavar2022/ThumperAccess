@@ -62,14 +62,15 @@ controls work exactly as they normally do.
 You need Windows 10 or 11, Thumper from Steam, and NVDA. The mod speaks through NVDA only,
 so other screen readers such as JAWS or Windows Narrator are not supported.
 
-1. Download the ZIP from the
-   [latest release](https://github.com/ChrisTavar2022/ThumperAccess/releases/latest)
-   and extract it anywhere, for example to your Documents folder.
+1. Download `ThumperAccess.zip` from the
+   [latest release](https://github.com/ChrisTavar2022/ThumperAccess/releases/latest),
+   unblock it (file Properties, then the Unblock checkbox), and extract it anywhere, for
+   example to your Documents folder.
 2. Download the NVDA Controller Client from
    [download.nvaccess.org/releases/stable](https://download.nvaccess.org/releases/stable/).
    It is the file ending in `_controllerClient.zip`.
-3. From that ZIP, copy `x86\nvdaControllerClient.dll` into a new folder named `lib`
-   inside the mod's folder.
+3. From that ZIP, copy `x86\nvdaControllerClient.dll` into the `lib` folder inside the
+   mod's `ThumperAccess` folder.
 4. Start NVDA and Thumper, then run `tools\narrator\Start-Narrator.cmd`. You will hear
    "Thumper narrator ready".
 5. Optional: run `tools\setup\Install-AutoStart.cmd` once, and the mod will start and stop
