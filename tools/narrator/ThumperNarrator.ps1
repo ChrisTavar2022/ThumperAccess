@@ -63,6 +63,7 @@ $vs = [System.Windows.Forms.SystemInformation]::VirtualScreen
 Write-Host "Thumper narrator running on $($vs.Width)x$($vs.Height). Ctrl+C to stop."
 if (-not $Quiet) { Say "Thumper narrator ready" }
 Invoke-UpdateCheck
+Test-AutoStartTask
 
 # Read the save once up front, so the first section finished this session has a baseline
 # to be compared against (see Announce-SectionResults).

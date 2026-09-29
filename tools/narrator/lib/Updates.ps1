@@ -25,6 +25,25 @@ function Invoke-UpdateCheck {
     }
 }
 
+# Auto-start tasks registered by v1.0.0 run "powershell.exe -WindowStyle Hidden", which
+# Windows 11 ignores when Windows Terminal is the default console: a visible window at every
+# login, and closing it kills auto-start (2026-09-29). Updating replaces the files but not the
+# task, and the narrator cannot fix the task itself - Set-ScheduledTask is "Access is denied"
+# from the narrator's own process too (tested 2026-09-29). So tell the player, at startup,
+# until they re-run the installer. A player without auto-start hears nothing.
+function Test-AutoStartTask {
+    try {
+        $task = Get-ScheduledTask -TaskName "ThumperAccessWatcher" -ErrorAction SilentlyContinue
+        if (-not $task) { return }
+        if ($task.Actions[0].Execute -ieq 'conhost.exe') { return }
+        $msg = "Auto-start needs a one-time update. Run Install-AutoStart from the tools, setup folder again."
+        Write-Host $msg
+        Say $msg -Queue
+    } catch {
+        # Never let this check take the narrator down.
+    }
+}
+
 # Any F1-F12 key installs, but only while an update is actually pending, and only while
 # Thumper is in front - "press any of the top keys", not one specific key a blind player
 # would need to have memorised.

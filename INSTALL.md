@@ -93,6 +93,11 @@ To turn this off again, run `tools\setup\Uninstall-AutoStart.cmd`.
 If you later move or rename the `ThumperAccess` folder, run `Install-AutoStart.cmd` again
 from its new location, since auto-start remembers where the folder was.
 
+If you turned on auto-start with version 1.0.0, run `Install-AutoStart.cmd` once more after
+updating. On Windows 11 the 1.0.0 version could open a terminal window when you signed in,
+and closing that window stopped auto-start until the next sign-in. The narrator reminds you
+at startup until this is done.
+
 ## Updates
 
 Each time the narrator starts, it checks for a newer release. If there is one, it tells
