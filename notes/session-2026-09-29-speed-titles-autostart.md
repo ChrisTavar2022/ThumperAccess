@@ -98,6 +98,35 @@ Negative results, do not retry:
   only some scale/gap combinations and "MSAA ax" in others. Left as a known limitation (it
   was missing in 8 of 9 reads before today too).
 
+## Repo reorganization (same session)
+
+- `tools/` = only what ships to players; `dev/` = SendKey, Capture, Build-Release;
+  `research/` = Ghidra scripts, MemScan, `game-api.md`. Deleted the superseded
+  `tools/ocr/` prototypes and `tools/speech/Speak.ps1` (dead: referenced a missing Say.ps1).
+- `ThumperNarrator.ps1` (1,845 lines) split into startup + main loop, with modules in
+  `tools/narrator/lib/`: ThumperVision.cs, Speech, Ocr, ScreenReading, LevelData, Announcer
+  (all loop state in one `$S` object; three named poll steps sharing `Test-SelectionChanged`),
+  Updates. Re-tested live on every screen: identical output.
+- **Player-facing paths under `tools/` must never move:** installed scheduled tasks point at
+  `Watch-Thumper.ps1`, the 1.0.0 updater restarts `Start-Narrator.cmd`, and the updater
+  never deletes old files.
+- `.gitignore`'s `lib/` matched ANY lib folder and silently hid `tools/narrator/lib/` - the
+  release would have shipped without the modules. Now `/lib/`.
+- The dev machine's NVDA DLL moved from a local tolk checkout into `lib/` (like a player's);
+  the narrator's tolk fallback, `tools/tolk` and `tools/minhook` are gone.
+
+## v1.0.1 released
+
+Published 2026-09-29. Verified first by downloading the real v1.0.0 zip and running its own
+`Install-Update.ps1` against the new zip via a `file://` URL: files arrived, including the new
+`lib/` subfolder, and the upgraded copy ran. A v1.0.0 copy's `Check-Update.ps1` then found
+the live release.
+
+Negative result: the narrator cannot fix a 1.0.0 auto-start task itself -
+`Set-ScheduledTask` is "Access is denied" from the narrator's process as well as from the
+agent sandbox. So `Test-AutoStartTask` (Updates.ps1) speaks a reminder at startup to re-run
+`Install-AutoStart.cmd` while the task still uses the old launch.
+
 ## Also seen, not fixed
 
 - Leaderboard scores are sometimes misread by a digit ("979,700" between 279,800 and
