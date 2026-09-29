@@ -8,8 +8,6 @@ logs/
 tools/ghidra_12.1.2_PUBLIC/
 tools/ghidra_input/
 tools/ghidra_project/
-tools/minhook/
-tools/tolk/
 
 # Session-only scan state
 research/scan/state/
