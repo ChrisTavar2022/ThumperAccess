@@ -133,3 +133,34 @@ agent sandbox. So `Test-AutoStartTask` (Updates.ps1) speaks a reminder at startu
   279,700; the speech log has 10 different scores for one player). Pre-existing.
 - The pause menu re-announces the level summary when returning from the checkpoint list
   (it has the LEVEL title and a red bar, same as level select). Pre-existing, harmless.
+
+## v1.0.1.1: default controls and Discord contact (docs only)
+
+Later the same day. No narrator code changed.
+
+- **README "Default controls"**: two Markdown tables (GitHub renders them as real HTML tables
+  with header cells, so NVDA's table navigation works). "Buttons and keys" has columns
+  Control / Keyboard / PlayStation / Xbox; "Moves" has Move / How to do it.
+- **Where the bindings came from:**
+  - Keyboard: the game's own Controls screen as the narrator spoke it (`logs/speech.log`,
+    8 rows: ACTION, UP, LEFT, DOWN, RIGHT, QUICK RESTART, SELECT, RESTORE DEFAULTS) plus
+    the 2026-09-27 notes. ACTION and SELECT = SPACE (OCR'd). The single letters (W, A, S,
+    D, R) are known only from the 2026-09-27 investigation, since OCR can't speak them;
+    which row R belongs to is inferred (QUICK RESTART), and the official manual confirms
+    it. Enter = select and Escape = back come from the on-screen corner prompts.
+  - Gamepad and moves: the official manual (https://thumpergame.com/manual/), which only
+    names PlayStation buttons (Cross = action, left stick, L1 = Quick Restart). The Xbox
+    column (A, LB) is the standard equivalent, our own mapping. Rings/bars "keep Action
+    held" is from a Steam community guide.
+  - **Not confirmed, deliberately not claimed:** whether the arrow keys work (the Controls
+    screen shows an arrow icon beside each letter, and the README says only that); the
+    gamepad's menu select/back and pause buttons (marked "Not documented" in the table).
+- **Contact**: a README "Contact" section and INSTALL's "Still stuck?" now point to Discord,
+  username `nion_light0972`. The GitHub issues link stays in INSTALL as a second option.
+- **Version 1.0.1.1**: the user chose a four-part version. `Check-Update.ps1` compares with
+  `[version]`, which treats 1.0.1.1 as newer than both 1.0.1 and 1.0.0; that code is
+  unchanged since 1.0.0, so every installed copy is offered the update. Verified after
+  publishing: a copy with `VERSION` 1.0.1 running `Check-Update.ps1` reported 1.0.1.1
+  available with the right zip URL.
+- WSL's `gh release view --json` has no `isLatest` field (old `gh`); the Check-Update run
+  above is the better check that the new release is the latest anyway.
