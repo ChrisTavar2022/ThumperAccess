@@ -3,12 +3,13 @@
 Current state and next steps. The full history - methods, measurements, negative results,
 and why each design decision was made - is in the dated files in `notes/`, newest first.
 
-## Current state (2026-09-29): v1.0.1 released publicly
+## Current state (2026-09-29): v1.0.1.1 released publicly
 
 The repo is public. v1.0.0 was published 2026-09-28; v1.0.1
 (https://github.com/ChrisTavar2022/ThumperAccess/releases/tag/v1.0.1) followed on
 2026-09-29 with faster menus, screen titles, the headless auto-start fix and the repo
-reorganization. Verified before publishing: the real v1.0.0 release's own updater upgraded
+reorganization. v1.0.1.1 (same day) is docs only: default controls tables in the README
+and the Discord contact (nion_light0972). Verified before publishing 1.0.1: the real v1.0.0 release's own updater upgraded
 a copy to 1.0.1, the upgraded copy ran, and a v1.0.0 copy detects the live release.
 
 To ship an update: bump `VERSION`, run `dev\release\Build-Release.ps1 -Zip`, commit, push
