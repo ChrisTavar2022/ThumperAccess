@@ -12,10 +12,10 @@ tools/minhook/
 tools/tolk/
 
 # Session-only scan state
-tools/scan/state/
+research/scan/state/
 
 # NVDA Controller Client - user-supplied, NV Access's to distribute, not ours
-lib/
+/lib/
 
 # Player's own Thumper install path - every machine's is different, see
 # config/game-dir.example.txt

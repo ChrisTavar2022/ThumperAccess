@@ -110,22 +110,32 @@ system-wide, and the game's files are never modified.
 <!-- dist:exclude -->
 ## For contributors
 
-- `tools/narrator/`: the narrator itself (`ThumperNarrator.ps1`) and its launcher
-- `tools/savedata/ParseSave.ps1`: decodes the save file (levels, scores, section ranks)
-- `tools/setup/`, `tools/updater/`: auto-start, the release packager, self-updating
-- `tools/input/SendKey.ps1`: injects key presses, for driving the game while testing
-- `tools/capture/`, `tools/ocr/`: screenshot and one-shot OCR diagnostics
-- `tools/ghidra_scripts/`, `tools/scan/`: reverse-engineering tooling, kept for future
-  gameplay-assist work
-- `notes/`: dated session notes, including dead ends and why they were abandoned
-- `project_status.md`: current state and next steps
+The repository is split by who uses each part:
+
+- `tools/`: everything a player's copy runs, and nothing else.
+  - `tools/narrator/`: the launcher (`Start-Narrator.cmd`), the auto-start watcher, and
+    `ThumperNarrator.ps1` (startup and the main loop). The work is in
+    `tools/narrator/lib/`: pixel scans (`ThumperVision.cs`), speech, OCR, screen reading,
+    save-file level data, the announcer that decides what to say and when, and updates.
+  - `tools/savedata/ParseSave.ps1`: decodes the save file (levels, scores, section ranks).
+  - `tools/setup/`: turning auto-start on and off. `tools/updater/`: self-updating.
+- `dev/`: developer tools that never ship: `input/SendKey.ps1` injects key presses to
+  drive the game while testing, `capture/` takes screenshots, `release/` builds the player
+  package.
+- `research/`: reverse-engineering material (Ghidra scripts, a memory scanner, findings in
+  `game-api.md`), kept for future gameplay-assist work.
+- `notes/`: dated session notes, including dead ends and why they were abandoned.
+- `project_status.md`: current state and next steps.
+
+Player-facing paths under `tools/` must not move: installed copies' auto-start tasks
+and the updater point at them, and the updater never deletes old files.
 
 Read `notes/session-2026-09-18-screen-reading-breakthrough.md` before changing the
 narrator. It records the traps that cost real time: DPI scaling silently shrinking
 screenshots, an always-animated background defeating naive change detection, and icon
 glyphs next to a value breaking OCR.
 
-Build a player package with `tools\setup\Build-Release.ps1`, which writes
+Build a player package with `dev\release\Build-Release.ps1`, which writes
 `dist\ThumperAccess\`.
 <!-- /dist:exclude -->
 

@@ -25,7 +25,7 @@ When the user says **"Resume Thumper"** (or just "Resume" / "Pick up where we le
   on both `C:\...\Steam\...` and a second library on `E:\...`. A player can override it in
   `config\game-dir.txt` (gitignored, see `config\game-dir.example.txt`) if auto-detection
   ever fails - e.g. a non-Steam install. Don't hardcode this path in new code; call
-  `Find-ThumperInstallDir` (defined in both `ThumperNarrator.ps1` and `ParseSave.ps1`).
+  `Find-ThumperInstallDir` (in `tools/narrator/lib/LevelData.ps1`).
 - **Architecture:** 64-bit (both `THUMPER_win8.exe` and `THUMPER_dx9.exe` are x64; win8 is the default/modern target)
 - **Engine:** Custom native C/C++ engine (SDL2 + FMOD), built by Drool LLC. **NOT Unity, NOT Unreal.**
 
@@ -49,29 +49,38 @@ attempted across several sessions in July and did not find a usable hook point -
 `notes/session-2026-09-18-screen-reading-breakthrough.md` for the full method and gotchas,
 and `README.md`/`INSTALL.md` for the user-facing description:
 
-- **Capture:** `tools/capture/Capture.ps1` screenshots the fullscreen game (plain GDI
-  `CopyFromScreen`, no Desktop Duplication API needed)
-- **Read:** `tools/ocr/` finds Thumper's full-width red selection-highlight bar (a global
-  UI convention across every menu), splits label from value, and reads each with Windows'
-  built-in OCR (`Windows.Media.Ocr`) - sliders are measured geometrically, never OCR'd
-- **Drive input (for testing/automation):** `tools/input/SendKey.ps1` injects hardware scan
-  codes via `SendInput`, which Thumper (SDL2) accepts as real key presses
-- **Save data:** `tools/savedata/ParseSave.ps1` decodes Thumper's plain, unencrypted save
-  file directly for exact scores/ranks, instead of OCR-ing the results screen
-- **Speak:** `tools/speech/Speak.ps1` / the narrator call `nvdaControllerClient32.dll`
-  directly (user-supplied, see `INSTALL.md` - not bundled, `lib/` is gitignored)
 - **Entry point:** `tools/narrator/Start-Narrator.cmd` (NOT the `.ps1` directly - see
-  `project_status.md` for why) runs `tools/narrator/ThumperNarrator.ps1`, which ties all of
-  the above together
-- **Build:** none - everything is PowerShell, no compile step
+  `project_status.md` for why) runs `tools/narrator/ThumperNarrator.ps1`, which is only
+  startup + the main loop. The modules it dot-sources live in `tools/narrator/lib/`:
+  - `ThumperVision.cs` - screen capture and every pixel scan (plain GDI `CopyFromScreen`):
+    the full-width red selection bar (a global UI convention across every menu), the gold
+    outline, text profiles, row counts, blobs, OCR binarization
+  - `Ocr.ps1` - Windows' built-in OCR (`Windows.Media.Ocr`)
+  - `ScreenReading.ps1` - screenshot -> words: label/value split, sliders (measured
+    geometrically, never OCR'd), "item N of M", titles, leaderboard/checkpoint rows, Controls
+  - `LevelData.ps1` - level progress and section results from the save file (via
+    `tools/savedata/ParseSave.ps1`, which decodes Thumper's plain, unencrypted save)
+  - `Announcer.ps1` - what to say and when: change detection, settle/confirm, follow-ups.
+    All loop state lives in its one `$S` object
+  - `Speech.ps1` - NVDA via `nvdaControllerClient.dll` in the repo's `lib/` (user-supplied,
+    see `INSTALL.md` - not bundled, `lib/` is gitignored); `Updates.ps1` - update check/install
+- **Drive input (for testing):** `dev/input/SendKey.ps1` injects hardware scan codes via
+  `SendInput`, which Thumper (SDL2) accepts as real key presses. `dev/capture/Capture.ps1`
+  takes screenshots.
+- **Build:** none - everything is PowerShell (+ one C# file compiled at startup by Add-Type)
+- **Repo layout rule:** `tools/` = only what ships to players; `dev/` = developer tools;
+  `research/` = Phase 2 reverse engineering. Never move a player-facing path under
+  `tools/` (the launcher, watcher, setup `.cmd`s, updater): installed copies' scheduled
+  tasks and the v1.0.0 updater point at them, and the updater never deletes old files.
+  New files a player needs must be added to `dev/release/Build-Release.ps1`'s list.
 
 Reverse engineering is parked, kept only for **Phase 2** (see below), where screen reading
 genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not menu text.
 
 ## Distribution (added 2026-09-27, working toward v1.0)
 
-- **Install path:** never hardcode it - call `Find-ThumperInstallDir` (defined in both
-  `ThumperNarrator.ps1` and `tools/savedata/ParseSave.ps1`), see "Environment" above.
+- **Install path:** never hardcode it - call `Find-ThumperInstallDir` (in
+  `tools/narrator/lib/LevelData.ps1`), see "Environment" above.
 - **Auto-start:** `tools/narrator/Watch-Thumper.ps1` polls for the game process and
   starts/stops the narrator with it. `tools/setup/Install-AutoStart.ps1` (+ `.cmd` wrapper)
   registers a per-user, non-elevated login task for it; `Uninstall-AutoStart.ps1` removes
@@ -83,7 +92,7 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
   querying `Get-ScheduledTask`/`Get-ScheduledTaskInfo` and the process list directly - don't
   rely on reading the console window's output (Windows Terminal renders as solid black to a
   plain GDI screenshot).
-- **Player release package:** `tools/setup/Build-Release.ps1` copies an explicit runtime
+- **Player release package:** `dev/release/Build-Release.ps1` copies an explicit runtime
   file allowlist (kept in the script itself) into `dist/ThumperAccess/` (gitignored,
   regenerate on demand) - no Ghidra/notes/dev tooling. Rebuild it after any change to a
   file it packages, so it never drifts from what's actually shipped.
@@ -97,12 +106,12 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
   unpacks to temp and copies from that inner folder. **Never call `exit`
   inside a script meant to run in-process via `&` from the narrator** - it kills the whole
   narrator process, not just that call; use normal terminating errors instead, caught by
-  the caller. No release has been published yet as of 2026-09-27 (no git tags) - see
-  `notes/session-2026-09-27-regressions-and-distribution.md`.
+  the caller. v1.0.0 was published 2026-09-28 - see `project_status.md` for how to ship
+  an update.
 
 ## Pixel-diagnosis gotchas (learned the hard way, 2026-09-27)
 
-- **`tools/capture/Capture.ps1` is not DPI-aware** - it prints the correct `SRC_RECT` but
+- **`dev/capture/Capture.ps1` is not DPI-aware** - it prints the correct `SRC_RECT` but
   actually *saves* a downscaled image (1280x720 instead of the real 1920x1080). Fine for
   glancing at which screen is up; never trust its coordinates for pixel-precise work. For
   that, do an inline DPI-aware capture instead (`SetProcessDPIAware()` + `CopyFromScreen`)
@@ -117,7 +126,7 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
   assume a shape means what its neighbouring label implies, either - "LEFT"'s own icon
   turned out to actually be a down arrow. When correctness matters (a blind player will act
   on what's spoken), an unreliable classifier is worse than not guessing at all - see
-  `Read-ControlsValue`'s comment in `ThumperNarrator.ps1` for the full investigation.
+  `Read-ControlsValue`'s comment in `tools/narrator/lib/ScreenReading.ps1` for the full investigation.
 - **A widget-detection assumption ("only check gold when no red bar found") turned out
   false.** The "Restart from checkpoint?" screen has a real gold-outline list AND a static
   red bar on screen at once, the only screen that does - `FindBar` matched the static bar,
@@ -176,7 +185,7 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
 ## Before Implementation
 
 **ALWAYS:**
-1. Search `docs/game-api.md` and `notes/` (memory addresses, function offsets found via
+1. Search `research/game-api.md` and `notes/` (memory addresses, function offsets found via
    Ghidra/x64dbg) for actual confirmed addresses/offsets - NEVER guess
 2. Use only "Safe Keys for Mod" (see game-api.md -> "Game Key Bindings") if we ever add new
    input, though Phase 1 doesn't need any
@@ -186,7 +195,9 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
 - `README.md` - Public-facing project description (status, how it works, credits)
 - `INSTALL.md` - End-user setup instructions (NVDA Controller Client, running the narrator,
   auto-start, self-updating)
-- `docs/game-api.md` - Reverse-engineering findings (Ghidra/x64dbg), kept for Phase 2
+- `research/game-api.md` - Reverse-engineering findings (Ghidra/x64dbg), kept for Phase 2
+- `notes/session-2026-09-29-speed-titles-autostart.md` - Speed-ups, screen titles and dialog
+  questions, the row-count fixes, tiled OCR for short labels, and the headless auto-start
 - `notes/session-2026-09-18-screen-reading-breakthrough.md` - The screen-reading method and
   every non-obvious gotcha behind it; read before changing the narrator
 - `notes/session-2026-09-28-section-results-and-checkpoints.md` - The two save slots, section
@@ -195,8 +206,9 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
   2026-09-27 bug fixes, the abandoned icon-classifier investigation, and the distribution
   tooling added that session; read before touching `Get-MenuPosition`, `FindBar`, the
   level-select/Leaderboards title logic, or the Controls screen again
-- `tools/narrator/`, `tools/ocr/`, `tools/capture/`, `tools/input/`, `tools/savedata/`,
-  `tools/speech/` - The working Phase 1 implementation (see "Current approach" above)
-- `tools/setup/`, `tools/updater/`, `config/`, `VERSION` - Distribution tooling (see
-  "Distribution" above)
-- `tools/ghidra_scripts/`, `tools/scan/MemScan.ps1` - Phase 2 reverse-engineering tooling
+- `tools/narrator/` (+ `lib/`), `tools/savedata/` - The working Phase 1 implementation
+  (see "Current approach" above)
+- `tools/setup/`, `tools/updater/`, `dev/release/`, `config/`, `VERSION` - Distribution
+  tooling (see "Distribution" above)
+- `dev/input/`, `dev/capture/` - Driving and screenshotting the game while testing
+- `research/ghidra_scripts/`, `research/scan/MemScan.ps1` - Phase 2 reverse-engineering tooling

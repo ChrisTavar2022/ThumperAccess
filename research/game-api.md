@@ -21,7 +21,7 @@ tracked the selection stepping 0->1->2->3 with paced arrow presses. Selection is
 a pointer-to-selected-item, a byte/short, or derived state invisible to a 4-byte-aligned
 scan. Full detail, methodology, and a promising press-correlated counter lead are in
 `notes/session-2026-07-10-memory-scan.md`. Next: Ghidra static analysis (string xrefs to
-menu labels; text-render function). Scanner tool for future sessions: `tools/scan/MemScan.ps1`.
+menu labels; text-render function). Scanner tool for future sessions: `research/scan/MemScan.ps1`.
 
 Format for entries:
 - **What:** e.g. "Main menu selected index"

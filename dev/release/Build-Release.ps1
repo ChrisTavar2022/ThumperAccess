@@ -22,6 +22,13 @@ if (-not $OutDir) { $OutDir = Join-Path $repoRoot "dist\ThumperAccess" }
 # Everything a player's copy needs to run - and nothing else.
 $files = @(
     "tools\narrator\ThumperNarrator.ps1",
+    "tools\narrator\lib\ThumperVision.cs",
+    "tools\narrator\lib\Speech.ps1",
+    "tools\narrator\lib\Ocr.ps1",
+    "tools\narrator\lib\ScreenReading.ps1",
+    "tools\narrator\lib\LevelData.ps1",
+    "tools\narrator\lib\Announcer.ps1",
+    "tools\narrator\lib\Updates.ps1",
     "tools\narrator\Start-Narrator.cmd",
     "tools\narrator\Watch-Thumper.ps1",
     "tools\savedata\ParseSave.ps1",
@@ -72,7 +79,7 @@ Set-Content -Path (Join-Path $libDir "PUT-NVDA-DLL-HERE.txt") -Encoding ASCII -V
 )
 
 # README.md is mostly player-facing already, but its "Layout" and "Notes for contributors"
-# sections describe dev-only files (notes/, tools/ocr, project_status.md, ...) that are not
+# sections describe dev-only files (notes/, dev/, research/, project_status.md, ...) that are not
 # in this package and would only confuse a player - strip anything between the dist:exclude
 # markers rather than hand-maintaining a second copy of the file.
 $readme = Get-Content (Join-Path $repoRoot "README.md") -Raw
