@@ -3,14 +3,18 @@
 Current state and next steps. The full history - methods, measurements, negative results,
 and why each design decision was made - is in the dated files in `notes/`, newest first.
 
-## Current state (2026-09-28): v1.0.0 released publicly
+## Current state (2026-09-29): v1.0.1 released publicly
 
-Published 2026-09-28: the repo is public, and release v1.0.0
-(https://github.com/ChrisTavar2022/ThumperAccess/releases/tag/v1.0.0) carries
-`ThumperAccess.zip`, verified end to end (anonymous download; an older install found and
-installed it through the self-updater). To ship an update: bump `VERSION`, run
-`dev\release\Build-Release.ps1 -Zip`, commit, push and `gh release create vX.Y.Z
-dist/ThumperAccess.zip` - both from WSL, where the GitHub login lives.
+The repo is public. v1.0.0 was published 2026-09-28; v1.0.1
+(https://github.com/ChrisTavar2022/ThumperAccess/releases/tag/v1.0.1) followed on
+2026-09-29 with faster menus, screen titles, the headless auto-start fix and the repo
+reorganization. Verified before publishing: the real v1.0.0 release's own updater upgraded
+a copy to 1.0.1, the upgraded copy ran, and a v1.0.0 copy detects the live release.
+
+To ship an update: bump `VERSION`, run `dev\release\Build-Release.ps1 -Zip`, commit, push
+and `gh release create vX.Y.Z dist/ThumperAccess.zip` - both from WSL, where the GitHub
+login lives. Updating never re-registers the auto-start task, so a fix to the task itself
+needs players to re-run `Install-AutoStart.cmd` (see `Test-AutoStartTask`).
 
 Phase 1 (menus read aloud through NVDA) is feature-complete. It works by screen reading -
 screenshot, find the selection highlight, OCR it with Windows' built-in OCR - plus reading
@@ -47,21 +51,11 @@ x86 NVDA controller client needs). Everything spoken is logged to `logs/speech.l
   testing). Reading the pip row under the title would make it exact; measurements are in
   `notes/session-2026-09-20-leaderboards.md`.
 
-## In progress (2026-09-29), not yet released
-
-Uncommitted/unreleased work - see `notes/session-2026-09-29-speed-titles-autostart.md`:
-faster menu reading (~0.3s per row), screen titles and dialog questions announced on
-entering a screen, several row-count fixes, the Controls "UP" label, and the auto-start fix
-(no terminal window at login; closing that window had been killing auto-start). Ship as
-v1.0.1 once the user has heard it - every v1.0.0 player has the terminal-window bug. The
-user must re-run `tools\setup\Install-AutoStart.cmd` to pick up the fixed task.
-
 ## Next steps
 
-1. Release v1.0.1 with the work above.
-2. Known leftovers: MSAA's value is rarely read; leaderboard scores are sometimes misread by
-   a digit (both OCR limits, see the 2026-09-29 notes).
-3. Later: a single distributable app instead of PowerShell scripts, and an ARM64 NVDA
+1. Known leftovers: MSAA's value is rarely read; leaderboard scores are sometimes misread by
+   a digit (both OCR limits, see `notes/session-2026-09-29-speed-titles-autostart.md`).
+2. Later: a single distributable app instead of PowerShell scripts, and an ARM64 NVDA
    controller client to remove the 32-bit PowerShell requirement.
 
 ## Phase 2 (future): gameplay assist
