@@ -11,8 +11,13 @@ $watcher = Join-Path $PSScriptRoot "..\narrator\Watch-Thumper.ps1"
 $watcher = (Resolve-Path $watcher).Path
 $taskName = "ThumperAccessWatcher"
 
-$action = New-ScheduledTaskAction -Execute "powershell.exe" `
-    -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$watcher`""
+# Launched through "conhost.exe --headless", not powershell.exe -WindowStyle Hidden. On
+# Windows 11 with Windows Terminal as the default console, -WindowStyle Hidden is ignored:
+# a visible terminal window opened at every login (2026-09-29), and closing it killed the
+# watcher (task result 0xC000013A, "console closed"), so the narrator then stopped
+# auto-starting with the game. A headless console never has a window to show or close.
+$action = New-ScheduledTaskAction -Execute "conhost.exe" `
+    -Argument "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$watcher`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn
 $principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `

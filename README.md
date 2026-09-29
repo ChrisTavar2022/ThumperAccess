@@ -40,6 +40,8 @@ More about the game: [official site](https://thumpergame.com/) and
 - **Every menu:** the main menu, Options, Gameplay, Controls, Audio, Video, Credits, the
   pause menu, and Yes/No dialogs. Each row says where it is in the list:
   "PLAY, item 1 of 4".
+- **Screen names:** when you open a new screen, its name comes first: "OPTIONS. GAMEPLAY,
+  item 1 of 5". Dialogs say their question: "EXIT GAME? NO, item 1 of 2".
 - **Settings values:** "FULLSCREEN, ON", "FRAME RATE, VSYNC", and sliders:
   "VOLUME slider set to 3, range 1 to 12".
 - **Level select:** your best score, rank, S-rank count, and how far through the level
@@ -85,8 +87,11 @@ tells you on startup and installs it at the press of a key.
 - **Single-letter key bindings aren't spoken.** On the Controls screen, keys like W, A, S,
   D and R can't be read, a limit of Windows' text recognition with lone letters. Longer
   names such as SPACE are read normally.
-- **Leaderboards:** the small rank badge next to each row isn't read yet, and on very fast
-  paging the level title is occasionally skipped.
+- **Video screen:** the MSAA setting's value (such as 4X) is usually not spoken. Windows'
+  text recognition misreads it too often to be trusted.
+- **Leaderboards:** the small rank badge next to each row isn't read yet, on very fast
+  paging the level title is occasionally skipped, and a player's score is now and then
+  misread by a digit.
 - **No gameplay assistance.** During play, the mod only announces section results. It
   doesn't describe the track or upcoming obstacles.
 

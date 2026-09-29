@@ -13,7 +13,11 @@ Stop with Ctrl+C.
 #>
 param(
     [int]$PollMs = 120,
-    [int]$SettleMs = 180,
+    # One poll (~170ms on the dev machine) is enough for the bar to land: measured
+    # 2026-09-29, the new row's text was already complete on the first poll after the move.
+    # 180 cost a second poll on every row - the difference between keeping up with presses
+    # half a second apart and skipping some. A new screen still waits for two agreeing reads.
+    [int]$SettleMs = 100,
     [int]$Upscale = 2,
     [switch]$Quiet,      # print what it would say, don't actually speak
     [switch]$Verbose
@@ -97,16 +101,21 @@ public class ThumperVision {
             bar[row] = total > 0 && ((double)red / total) > 0.30;
         }
 
+        // The main menu's animated background periodically floods the top of the screen
+        // with bright red rays - runs of 130-260 rows at 1080p (2026-09-29), far taller than
+        // the real ~50-row bar. Taken as the longest run, they replaced the real bar for
+        // seconds at a time and every key press in that window went unannounced. Anything
+        // taller than 8% of the screen cannot be a menu row, so it is skipped.
+        int maxLen = (int)(h * 0.08);
         int bestTop = -1, bestBot = -1, bestLen = 0, cur = -1;
-        for (int row = 0; row < h; row++) {
-            if (bar[row]) { if (cur < 0) cur = row; }
+        for (int row = 0; row <= h; row++) {
+            if (row < h && bar[row]) { if (cur < 0) cur = row; }
             else if (cur >= 0) {
                 int len = row - cur;
-                if (len > bestLen) { bestLen = len; bestTop = cur; bestBot = row - 1; }
+                if (len > bestLen && len <= maxLen) { bestLen = len; bestTop = cur; bestBot = row - 1; }
                 cur = -1;
             }
         }
-        if (cur >= 0 && (h - cur) > bestLen) { bestLen = h - cur; bestTop = cur; bestBot = h - 1; }
         if (bestLen < 8) return new int[] { -1, -1 };
         return new int[] { bestTop, bestBot };
     }
@@ -424,16 +433,17 @@ Add-Content -Path $LogPath -Encoding UTF8 -Value ("=== narrator started {0} ==="
 
 function Write-SpeechLog([string]$text) {
     try {
-        Add-Content -Path $LogPath -Encoding UTF8 -Value ("{0}  {1}" -f (Get-Date -Format "HH:mm:ss"), $text)
+        Add-Content -Path $LogPath -Encoding UTF8 -Value ("{0}  {1}" -f (Get-Date -Format "HH:mm:ss.fff"), $text)
     } catch {
         # Never let logging take the narrator down mid-session.
     }
 }
 
-function Say([string]$text) {
+# -Queue speaks after whatever is still being said instead of cutting it off.
+function Say([string]$text, [switch]$Queue) {
     Write-SpeechLog $text
     if ($Quiet) { Write-Host "[would speak] $text"; return }
-    [void][Nvda]::nvdaController_cancelSpeech()
+    if (-not $Queue) { [void][Nvda]::nvdaController_cancelSpeech() }
     [void][Nvda]::nvdaController_speakText($text)
 }
 
@@ -464,6 +474,11 @@ function Read-Strip([System.Drawing.Bitmap]$shot, [int]$top, [int]$bot, [int]$xS
     $span = (&{ if ($xEnd -gt 0) { $xEnd } else { $shot.Width } }) - $xStart
     $scale = if ($span -lt 700) { 5 } elseif ($span -lt 1200) { 3 } else { $Upscale }
     $clean = [ThumperVision]::Binarize($shot, $top, $bot, $scale, $xStart, $xEnd)
+    return Read-Bitmap $clean
+}
+
+# OCR an already-prepared image, and dispose of it.
+function Read-Bitmap([System.Drawing.Bitmap]$clean) {
     $clean.Save($tmpFile, [System.Drawing.Imaging.ImageFormat]::Png)
     $clean.Dispose()
     $file = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync($tmpFile)) ([Windows.Storage.StorageFile])
@@ -473,6 +488,52 @@ function Read-Strip([System.Drawing.Bitmap]$shot, [int]$top, [int]$bot, [int]$xS
     $res = Await ($ocr.RecognizeAsync($bitmap)) ([Windows.Media.Ocr.OcrResult])
     $stream.Dispose()
     return $res.Text.Trim()
+}
+
+# Windows OCR returns nothing for a lone short word: the Controls screen's "UP" label, a
+# perfectly clean binarized crop, read as empty on 15 of 16 scale/padding combinations
+# (2026-09-29) and was never once announced. Three copies side by side, half a glyph
+# height apart, read as "UP UP UP" at every scale tried. Accepted only when all three
+# copies agree AND the result is uppercase letters, as every Thumper label is: tiled, the
+# Video screen's "4X" value came back "ax ax ax" - consistent, but wrong. For labels only -
+# on the Controls screen's value side an arrow icon tiled the same way read as "t t t", a
+# wrong key a player would act on, which is why single-letter key bindings stay unspoken.
+function Read-StripTiled([System.Drawing.Bitmap]$shot, [int]$top, [int]$bot, [int]$xStart, [int]$xEnd) {
+    $one = [ThumperVision]::Binarize($shot, $top, $bot, 5, $xStart, $xEnd)
+    $gap = [int]($one.Height * 0.5); $pad = 20
+    $tiled = New-Object System.Drawing.Bitmap ((3 * $one.Width) + (2 * $gap) + (2 * $pad)), ($one.Height + (2 * $pad))
+    $g = [System.Drawing.Graphics]::FromImage($tiled)
+    $g.Clear([System.Drawing.Color]::White)
+    for ($i = 0; $i -lt 3; $i++) { $g.DrawImage($one, $pad + $i * ($one.Width + $gap), $pad, $one.Width, $one.Height) }
+    $g.Dispose(); $one.Dispose()
+    $words = @((Read-Bitmap $tiled) -split '\s+' | Where-Object { $_ })
+    if ($words.Count -ne 3 -or $words[0] -ne $words[1] -or $words[1] -ne $words[2]) { return "" }
+    if ($words[0] -cnotmatch '^[A-Z]{2,}$') { return "" }
+    return $words[0]
+}
+
+# The screen's own title ("OPTIONS", "AUDIO", ...), for prefixing the first row announced
+# on a new screen. Returns "" for anything that does not look like a clean title (a
+# half-slid-in frame, the THUMPER logo misread), and "-" for a "LEVEL N" title: read fine,
+# but not spoken - level select and the pause menu already announce their level through
+# their own paths - so the caller should not wait for a better read.
+#
+# A dialog ("EXIT GAME?" over NO/YES) has nothing in the usual title zone - its question
+# sits just above the list, at ~0.30 of the height. So when that zone is empty, the
+# nearest text line above the selected row is read instead, if it is clearly separated from
+# it (a question stands apart from its answers; an ordinary row above the selection sits
+# one row pitch away). Only when the title zone is EMPTY: the main menu has its logo up
+# there, so it never falls through to reading PLAY as a "title".
+function Read-ScreenTitle([System.Drawing.Bitmap]$shot, [int]$barTop) {
+    $box = Get-TitleBox $shot
+    if (-not $box) { $box = Get-QuestionBox $shot $barTop }
+    if (-not $box) { return "" }
+    $t = (Read-Strip $shot $box.Top $box.Bot $box.Left $box.Right).Trim()
+    if ($Verbose) { Write-Host "[screen title] '$t'" }
+    $t = ($t -replace '\s+', ' ').ToUpperInvariant()
+    if ($t -match 'LEVEL\s*\d') { return "-" }
+    if ($t -notmatch "^[A-Z][A-Z ?!']{2,40}$") { return "" }
+    return $t
 }
 
 # Find the screen title's actual bounds rather than assuming fixed proportions. Guessing
@@ -515,6 +576,41 @@ function Get-TitleBox([System.Drawing.Bitmap]$shot) {
         Bot    = $bot
         Left   = [math]::Max(0, $first - 20)
         Right  = [math]::Min($shot.Width, $lastStart + $lastWidth + 20)
+    }
+}
+
+function Get-QuestionBox([System.Drawing.Bitmap]$shot, [int]$barTop) {
+    $h = $shot.Height
+    $counts = [ThumperVision]::RowCounts($shot, 0.20, 0.80)
+    # The lowest text-height run above the bar. Shorter runs are skipped, not taken: a 2px
+    # glint right above the dialog's bar would otherwise hide the question.
+    $best = $null; $cur = $null
+    for ($y = [int]($h * 0.22); $y -le $barTop; $y++) {
+        if ($y -lt $barTop -and $counts[$y * 2] -ge 6) {
+            if (-not $cur) { $cur = [pscustomobject]@{ Top = $y; Bot = $y } }
+            $cur.Bot = $y
+        } elseif ($cur) {
+            $height = $cur.Bot - $cur.Top + 1
+            if ($height -ge ($h * 0.025) -and $height -le ($h * 0.07)) { $best = $cur }
+            $cur = $null
+        }
+    }
+    if (-not $best) { return $null }
+    # Measured on EXIT GAME?: ~135px from the question to the bar at 1080p; a plain row
+    # above the selection is ~20px from the bar's top edge.
+    if (($barTop - $best.Bot) -lt ($h * 0.06)) { return $null }
+
+    $pad = [int]($h * 0.006)
+    $top = [math]::Max(0, $best.Top - $pad)
+    $bot = [math]::Min($h - 1, $best.Bot + $pad)
+    $r = [ThumperVision]::Blobs($shot, $top, $bot, 0)
+    $n = $r[0]
+    if ($n -lt 1) { return $null }
+    return [pscustomobject]@{
+        Top   = $top
+        Bot   = $bot
+        Left  = [math]::Max(0, $r[1] - 20)
+        Right = [math]::Min($shot.Width, $r[1 + ($n - 1) * 3] + $r[1 + ($n - 1) * 3 + 1] + 20)
     }
 }
 
@@ -822,9 +918,11 @@ function Get-MenuPosition([System.Drawing.Bitmap]$shot, [int]$barCenter, [double
     $h = $shot.Height
     # Keep this well above the first menu row. At 0.22 the Video menu's FULLSCREEN row sat
     # above the cutoff, so it was never counted: every row reported "of 5" instead of
-    # "of 6" and FULLSCREEN itself got no position at all. Screen titles are excluded by
-    # the band-height filter below (they are far taller than a menu row), not by this.
-    $minRow = [int]($h * 0.10)
+    # "of 6" and FULLSCREEN itself got no position at all. But not above the screen titles
+    # either: at 0.10 the Audio title (0.10-0.135 of height) was counted as a row sitting
+    # exactly two row pitches above VOLUME, and Audio's one row read "item 2 of 2"
+    # (2026-09-29). Every title seen sits above 0.14, every first row at 0.20 or below.
+    $minRow = [int]($h * 0.15)
     $minBandH = [int]($h * 0.020)
     $maxBandH = [int]($h * 0.060)
 
@@ -899,11 +997,29 @@ function Get-MenuPosition([System.Drawing.Bitmap]$shot, [int]$barCenter, [double
     # screen. On the level select the rank grid and score line add tightly packed bands
     # well above the menu, which dragged the median away from the menu's own pitch: the
     # run then never extended upwards and every row reported "item 1 of N".
+    # Measured between band CENTRES, not tops: a row whose band picks up bleed on one side
+    # (the previous row's highlight still fading out, 2026-09-29: EXIT GAME's band started
+    # 11px early) shifts its top by the whole bleed but its centre by only half, and the
+    # shifted top dragged the pitch down to 43px and dropped two rows from the count.
+    $mid = @(foreach ($bd in $bands) { ($bd.Top + $bd.Bot) / 2.0 })
     $cand = @()
-    if ($selIdx -gt 0) { $cand += ($bands[$selIdx].Top - $bands[$selIdx - 1].Top) }
-    if ($selIdx -lt ($bands.Count - 1)) { $cand += ($bands[$selIdx + 1].Top - $bands[$selIdx].Top) }
+    if ($selIdx -gt 0) { $cand += ($mid[$selIdx] - $mid[$selIdx - 1]) }
+    if ($selIdx -lt ($bands.Count - 1)) { $cand += ($mid[$selIdx + 1] - $mid[$selIdx]) }
     if ($cand.Count -lt 1) { return [pscustomobject]@{ Index = 1; Total = 1 } }
-    $refGap = ($cand | Measure-Object -Minimum).Minimum
+    # Of the gaps to the neighbours above and below, take the one closest to a normal row
+    # pitch rather than simply the smaller one. Every menu measured 2026-09-29 (main,
+    # Options, Video, Controls, pause, level select, dialogs) spaces its rows 54-59px apart
+    # at 1080p, ~0.052 of the height. On level select a faint patch of background art sits
+    # 42px above RESUME; taking the minimum made that the pitch, PRACTICE fell off the
+    # grid, and RESUME read "item 1 of 2" (or no count at all). A candidate far from the
+    # normal pitch still falls back to the old minimum.
+    $expected = $h * 0.052
+    $near = @($cand | Where-Object { [math]::Abs($_ - $expected) -le ($expected * 0.35) })
+    if ($near.Count -gt 0) {
+        $refGap = ($near | Sort-Object { [math]::Abs($_ - $expected) } | Select-Object -First 1)
+    } else {
+        $refGap = ($cand | Measure-Object -Minimum).Minimum
+    }
     if ($refGap -le 0) { return $null }
 
     # Group rows by PITCH from the selected row, not by list adjacency. Walking adjacent
@@ -913,8 +1029,9 @@ function Get-MenuPosition([System.Drawing.Bitmap]$shot, [int]$barCenter, [double
     # steps over those, and requiring the multiples to be consecutive stops the rank grid
     # far above from being swept in.
     $slots = @{}
-    foreach ($bd in $bands) {
-        $delta = $bd.Top - $bands[$selIdx].Top
+    for ($bi = 0; $bi -lt $bands.Count; $bi++) {
+        $bd = $bands[$bi]
+        $delta = $mid[$bi] - $mid[$selIdx]
         $k = [int][math]::Round($delta / $refGap)
         if ([math]::Abs($k) -gt 12) { continue }
         if ([math]::Abs($delta - ($k * $refGap)) -gt ($refGap * 0.30)) { continue }
@@ -1168,6 +1285,31 @@ $fKeyWas = $false
 # it, so a lower total than one already confirmed is treated as a bad read, not a real
 # change. Reset alongside $lastSpoken wherever that already means "the screen changed."
 $script:knownTotal = 0
+# Screen titles: $titleDirty is set whenever the screen may have changed (the title band's
+# pixels moved, or the selection widget vanished), and the next confirmed row announcement
+# then reads the title and prefixes it if it differs from the last one spoken. Read at that
+# moment rather than on its own timer, so title and row come out as one utterance - Say
+# cancels whatever is still being spoken, so two separate calls would cut each other off.
+$titleDirty = $true
+$lastScreenTitle = ""
+# Set by any read whose row count is not yet confirmed (a new screen sliding in); the title
+# is read only on the announcement that ends such a run, not on every row.
+$screenFresh = $true
+$titleWaits = 0
+# Follow-up reads after an announcement that came out incomplete - see where they are
+# scheduled, below Say in the red-bar path.
+$followUps = 0
+$followUpAt = [DateTime]::MinValue
+$isFollowUp = $false
+$announcedText = ""
+$announcedValue = $false
+$announcedPos = $false
+$announcedTotal = 0
+$labelsWithValue = @{}
+# "LABEL, VALUE" pairs already confirmed by two agreeing reads this session - a later first
+# read that matches one exactly is trusted without waiting for a second.
+$confirmedValues = @{}
+$queueRowUntil = [DateTime]::MinValue
 # Read the save once up front, so the first section finished this session has a baseline
 # to be compared against (see Announce-SectionResults).
 Update-LevelData
@@ -1235,7 +1377,7 @@ while ($true) {
         # A fresh title change gets a fresh retry budget. Without the reset, failed reads
         # on one level eat the allowance for the next, and paging quickly leaves later
         # levels unannounced.
-        if ($titleChanged) { $titleAt = Get-Date; $titlePending = $true; $titleTries = 0 }
+        if ($titleChanged) { $titleAt = Get-Date; $titlePending = $true; $titleTries = 0; $titleDirty = $true }
         if ($titlePending -and ((Get-Date) - $titleAt).TotalMilliseconds -ge 350) {
             $titlePending = $false
             $titleText = ""
@@ -1282,8 +1424,11 @@ while ($true) {
                             Write-Host "-> $summary"
                             Say $summary
                             # The bar row (RESTART etc) is unchanged across levels;
-                            # clearing this lets it be re-announced after the summary.
+                            # clearing this lets it be re-announced after the summary -
+                            # queued behind it, since that row is read ~0.15s later and
+                            # used to cut the summary off.
                             $lastSpoken = ""
+                            $queueRowUntil = (Get-Date).AddMilliseconds(800)
                             $script:knownTotal = 0
                         }
                     }
@@ -1450,8 +1595,10 @@ while ($true) {
             $pendingPhrase = ""
             $lastSpoken = ""
             $script:knownTotal = 0
+            $titleDirty = $true
+            $lastScreenTitle = ""
         } else {
-            $center = [int](($bar[0] + $bar[1]) / 2)
+            $center =[int](($bar[0] + $bar[1]) / 2)
             $half = [int]($shot.Height * 0.028)
             $top = [math]::Max(0, $center - $half)
             $bot = [math]::Min($shot.Height - 1, $center + $half)
@@ -1461,7 +1608,10 @@ while ($true) {
             # change signal. The profile catches the rest: same row, different text, which
             # is what happens when a submenu opens over the same layout.
             $changed = $false
-            if ($bar[0] -ne $lastBarTop -or -not $lastProfile) {
+            # A few pixels of tolerance: the bar's detected top edge flickers by 1px between
+            # frames (784/785, 2026-09-29), and counting that as a move restarted the settle
+            # wait on every poll - LEADERBOARDS was never read at all before the next press.
+            if ([math]::Abs($bar[0] - $lastBarTop) -gt 3 -or -not $lastProfile) {
                 $changed = $true
             } else {
                 $diff = 0; $total = 0; $maxBucket = 0
@@ -1480,14 +1630,22 @@ while ($true) {
                            (($diff -gt [math]::Max(60, $total * 0.20)) -or ($maxBucket -ge 10))
             }
 
-            if ($Verbose) { Write-Host ("poll bar={0}-{1} changed={2} total={3} maxBucket={4}" -f $bar[0], $bar[1], $changed, $total, $maxBucket) }
+            if ($Verbose) { Write-Host ("{5} poll bar={0}-{1} changed={2} total={3} maxBucket={4}" -f $bar[0], $bar[1], $changed, $total, $maxBucket, (Get-Date -Format "ss.fff")) }
             $lastBarTop = $bar[0]
             $lastProfile = $prof
 
             # The bar slides between rows rather than jumping, so reading the instant it
             # starts moving catches a smeared mid-animation frame. Wait for it to hold
             # still, then read exactly once.
-            if ($changed) { $changeAt = Get-Date; $pendingRead = $true; $pendingTries = 0 }
+            if ($changed) {
+                $changeAt = Get-Date; $pendingRead = $true; $pendingTries = 0
+                $followUps = 0; $isFollowUp = $false
+            }
+            if (-not $pendingRead -and $followUps -gt 0 -and (Get-Date) -ge $followUpAt) {
+                $pendingRead = $true
+                $isFollowUp = $true
+                $changeAt = [DateTime]::MinValue
+            }
 
             if ($pendingRead -and ((Get-Date) - $changeAt).TotalMilliseconds -ge $SettleMs) {
                 $pendingRead = $false
@@ -1496,8 +1654,10 @@ while ($true) {
                 # measure the value if it is a pip slider rather than OCRing it.
                 $split = Get-RowSplit $shot $bar[0] $bar[1]
                 $value = ""
+                $slider = $null
                 if ($split) {
                     $text = Read-Strip $shot $top $bot $split.LabelStart $split.LabelEnd
+                    if (-not $text) { $text = Read-StripTiled $shot $top $bot $split.LabelStart $split.LabelEnd }
                     $slider = Get-SliderValue $shot $bar[0] $bar[1] $split.GroupStart
                     if ($slider) {
                         $value = "slider set to {0}, range 1 to {1}" -f $slider.Value, $slider.Total
@@ -1522,13 +1682,25 @@ while ($true) {
                     $value = Read-ControlsValue $shot $bar[0] $bar[1]
                 }
 
-                if ($Verbose) { Write-Host ("[bar {0}-{1}] '{2}' / '{3}'" -f $bar[0], $bar[1], $text, $value) }
+                if ($Verbose) { Write-Host ("{4} [bar {0}-{1}] '{2}' / '{3}'" -f $bar[0], $bar[1], $text, $value, (Get-Date -Format "ss.fff")) }
                 if (($text -or $value) -and $text.Length -le 48) {
                     if ($isControlsScreen) {
                         $pos = Get-MenuPosition $shot $center 0.15 0.85
                     } else {
                         $pos = Get-MenuPosition $shot $center
                     }
+                    # Whether this read's row count matches one already confirmed on this
+                    # screen - taken before the update below changes $script:knownTotal.
+                    $undercount = $false
+                    # Rows whose value was OCR'd ("1920X1080", "4X") still need two agreeing
+                    # reads: a first read of RESOLUTION came back "1920xm080" (2026-09-29).
+                    # Labels alone and measured sliders are reliable on the first read.
+                    # ...unless this exact row and value were already confirmed this session.
+                    $valueIsOcr = $value -and -not $slider
+                    $seenKey = (("$text, $value") -replace '\s', '').ToUpperInvariant()
+                    $valueTrusted = -not $valueIsOcr -or $confirmedValues.ContainsKey($seenKey)
+                    $totalConfirmed = $pos -and $script:knownTotal -gt 0 -and
+                        $pos.Total -eq $script:knownTotal -and $valueTrusted
                     if ($pos) {
                         if ($pos.Total -gt $script:knownTotal) {
                             $script:knownTotal = $pos.Total
@@ -1537,33 +1709,105 @@ while ($true) {
                             # this exact screen - a real screen's row count does not shrink
                             # while you sit still on it, so this is background art bleeding
                             # into the row scan again (see the fixes above this function),
-                            # not a real change. Don't speak a total known to be wrong - the
-                            # label alone still gets said, and the next poll gets another
-                            # chance at a clean read.
+                            # not a real change. Don't speak a total known to be wrong. The
+                            # usual cause is the previous row's highlight still fading out
+                            # (seen 2026-09-29: OPTIONS counted "of 3" on the main menu), so
+                            # the row is read again below before settling for the label alone.
                             $pos = $null
+                            $undercount = $true
                         }
                     }
                     $phrase = $text
                     if ($value) { $phrase = if ($text) { "$text, $value" } else { $value } }
                     if ($pos) { $phrase += ", item {0} of {1}" -f $pos.Index, $pos.Total }
+                    if ($text -and $value) { $labelsWithValue[$text.Trim().ToUpperInvariant()] = $true }
+                    if (-not $totalConfirmed) { $screenFresh = $true }
                     # Compare on a whitespace-stripped key. OCR alternates between
                     # "1920X1280" and "1920X 1280" on the same row, and comparing raw text
                     # meant the two reads never agreed, so that row was never announced.
                     $key = ($phrase -replace '\s', '').ToUpperInvariant()
-                    if ($key -ne $lastSpoken) {
+                    if ($isFollowUp) {
+                        # A follow-up re-read of the row just announced. Speak again only
+                        # if it is the same row and now has the value or position the
+                        # announcement lacked - anything else (OCR jitter) stays quiet.
+                        $isFollowUp = $false
+                        $followUps--
+                        $followUpAt = (Get-Date).AddMilliseconds(350)
+                        $gained = ($value -and -not $announcedValue) -or ($pos -and -not $announcedPos) -or
+                                  ($pos -and $pos.Total -gt $announcedTotal)
+                        if ($key -ne $lastSpoken -and $text -eq $announcedText -and $gained) {
+                            $lastSpoken = $key
+                            $followUps = 0
+                            Write-Host "-> $phrase (follow-up)"
+                            Say $phrase
+                        }
+                    } elseif ($key -ne $lastSpoken) {
                         # Screen transitions slide the whole list, so a single read taken
                         # mid-slide sees a partial menu and yields a wrong count ("2 of 2").
                         # Only speak once two consecutive reads agree.
                         # ...but OCR is not perfectly repeatable, and a row whose reads
                         # never quite agree would otherwise stay silent forever. After a
                         # few tries, say the latest read rather than skipping the row.
+                        # Once a screen's row count has been confirmed, a read that matches
+                        # it is moving within a settled list, not sliding in - so it is
+                        # spoken straight away instead of waiting ~0.3s for a second read
+                        # to agree. The same trade the checkpoint screen made on
+                        # 2026-09-28; pressing again before the confirm finished used to
+                        # skip rows. A new screen (count not yet known) still needs two.
                         $pendingTries++
-                        if ($key -eq $pendingPhrase -or $pendingTries -ge 4) {
+                        # Also retry a read whose label came back empty: on the Controls
+                        # screen UP's label once OCR'd as nothing and the row was announced
+                        # as just "w" (2026-09-29).
+                        $retryCount = ($undercount -or ($split -and -not $text)) -and $pendingTries -lt 4
+                        $ready = -not $retryCount -and ($key -eq $pendingPhrase -or $pendingTries -ge 4 -or $totalConfirmed)
+                        # The title, only on a new screen (count not yet confirmed). The main
+                        # menu's animated background keeps $titleDirty set, and its logo
+                        # never OCRs as a title, so reading on every row there wasted an OCR
+                        # call per key press. A title still sliding in reads empty - rows are
+                        # now confirmed fast enough to beat it (Controls, 2026-09-29) - so an
+                        # empty read holds the row back for up to two more polls first.
+                        $screenTitle = ""
+                        if ($ready -and $titleDirty -and $screenFresh) {
+                            $screenTitle = Read-ScreenTitle $shot $bar[0]
+                            if (-not $screenTitle -and $titleWaits -lt 2) { $titleWaits++; $ready = $false }
+                        }
+                        if ($ready) {
+                            if ($valueIsOcr) { $confirmedValues[$seenKey] = $true }
                             $lastSpoken = $key
                             $pendingPhrase = ""
                             $pendingTries = 0
+                            if ($titleDirty -and $screenFresh) {
+                                $titleDirty = $false
+                                $titleWaits = 0
+                                if ($screenTitle -and $screenTitle -ne "-" -and $screenTitle -ne $lastScreenTitle) {
+                                    $lastScreenTitle = $screenTitle
+                                    $sep = if ($screenTitle -match '[?!]$') { " " } else { ". " }
+                                    $phrase = "$screenTitle$sep$phrase"
+                                }
+                            }
+                            $wasFresh = $screenFresh
+                            $screenFresh = $false
                             Write-Host "-> $phrase"
-                            Say $phrase
+                            # Only the re-read straight after a summary is queued; a later key
+                            # press interrupts as usual.
+                            Say $phrase -Queue:((Get-Date) -lt $queueRowUntil)
+                            $queueRowUntil = [DateTime]::MinValue
+                            # Some values are drawn a moment after their row's label - MSAA's
+                            # "4X" was missing from a first read taken as soon as the bar
+                            # landed (2026-09-29) - and a count can be withheld as an
+                            # undercount. Re-read the row up to twice so the complete version
+                            # is still said. Also after the first row of a new screen: a menu
+                            # still fading in can give two agreeing reads with a row missing
+                            # (main menu "PLAY, item 1 of 3", 2026-09-29), and the re-read then
+                            # corrects the count. Otherwise only for rows known to have a
+                            # value, or with no position, so plain rows cost no extra OCR.
+                            $announcedText = $text
+                            $announcedValue = [bool]$value
+                            $announcedPos = [bool]$pos
+                            $announcedTotal = if ($pos) { $pos.Total } else { 0 }
+                            $knownValued = $text -and $labelsWithValue.ContainsKey($text.Trim().ToUpperInvariant())
+                            $followUps = if ((-not $pos) -or ($knownValued -and -not $value) -or $wasFresh) { 2 } else { 0 }
+                            $followUpAt = (Get-Date).AddMilliseconds(350)
                             # Level select and the main menu both use this same red bar, and
                             # the title-band change detector cannot be trusted to notice the
                             # difference: sitting on the main menu, the animated background

@@ -75,7 +75,9 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
 - **Auto-start:** `tools/narrator/Watch-Thumper.ps1` polls for the game process and
   starts/stops the narrator with it. `tools/setup/Install-AutoStart.ps1` (+ `.cmd` wrapper)
   registers a per-user, non-elevated login task for it; `Uninstall-AutoStart.ps1` removes
-  it. **Registering the task needs a real interactive session** - it fails with "Access is
+  it. Anything launched in the background must go through `conhost.exe --headless`, never
+  `-WindowStyle Hidden` - Windows 11 ignores the latter when Windows Terminal is the default
+  console, which put a visible window on screen and let the user close (kill) the watcher. **Registering the task needs a real interactive session** - it fails with "Access is
   denied" from an agent's own sandboxed tool calls even though it needs no admin rights; if
   you hit this, ask the user to run `Install-AutoStart.cmd` themselves, then verify by
   querying `Get-ScheduledTask`/`Get-ScheduledTaskInfo` and the process list directly - don't
@@ -144,8 +146,10 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
    confirmed Windows OCR limit, see "Pixel-diagnosis gotchas" above. Section results
    are announced from the save file (the game saves after every section - not the results
    screen via OCR) as the rank letter ONLY ("S") - a deliberate user decision so nothing long
-   plays mid-gameplay; don't add detail back without asking. Verified live 2026-09-28. Not done yet: announcing screen
-   titles on transition. See `project_status.md` "Next steps" for the live list.
+   plays mid-gameplay; don't add detail back without asking. Verified live 2026-09-28.
+   Screen titles (and dialog questions) are announced on entering a screen since
+   2026-09-29 - see `notes/session-2026-09-29-speed-titles-autostart.md`. See
+   `project_status.md` "Next steps" for the live list.
 2. **Phase 2 (future): Gameplay obstacle auto-play assist** - for a chosen tough section,
    read the upcoming track/obstacle data ahead of time and have the mod take over input to
    play that section automatically. This is the one place static/dynamic reverse

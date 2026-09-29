@@ -24,7 +24,8 @@ x86 NVDA controller client needs). Everything spoken is logged to `logs/speech.l
 ### Working
 
 - Main menu, Options, Gameplay, Controls, Audio, Video, Credits, pause menu, dialogs, with
-  values, pip sliders and "item N of M"
+  values, pip sliders and "item N of M"; the screen's title (or a dialog's question) comes
+  first on entering a screen
 - Level select: level summary (best score, rank, S count, current run progress)
 - Leaderboards: level title and each row (rank, name, score)
 - "Restart from checkpoint?": each checkpoint with that section's own rank and points
@@ -46,11 +47,20 @@ x86 NVDA controller client needs). Everything spoken is logged to `logs/speech.l
   testing). Reading the pip row under the title would make it exact; measurements are in
   `notes/session-2026-09-20-leaderboards.md`.
 
+## In progress (2026-09-29), not yet released
+
+Uncommitted/unreleased work - see `notes/session-2026-09-29-speed-titles-autostart.md`:
+faster menu reading (~0.3s per row), screen titles and dialog questions announced on
+entering a screen, several row-count fixes, the Controls "UP" label, and the auto-start fix
+(no terminal window at login; closing that window had been killing auto-start). Ship as
+v1.0.1 once the user has heard it - every v1.0.0 player has the terminal-window bug. The
+user must re-run `tools\setup\Install-AutoStart.cmd` to pick up the fixed task.
+
 ## Next steps
 
-1. Announce screen titles on transition (only the selected row is announced today).
-2. Polish seen in `logs/speech.log`: a row very occasionally announced without its value on
-   the first read; a transient wrong count while a screen is still sliding in.
+1. Release v1.0.1 with the work above.
+2. Known leftovers: MSAA's value is rarely read; leaderboard scores are sometimes misread by
+   a digit (both OCR limits, see the 2026-09-29 notes).
 3. Later: a single distributable app instead of PowerShell scripts, and an ARM64 NVDA
    controller client to remove the 32-bit PowerShell requirement.
 

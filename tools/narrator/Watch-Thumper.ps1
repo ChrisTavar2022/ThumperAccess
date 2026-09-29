@@ -28,7 +28,10 @@ while ($true) {
     $narrator = Get-NarratorProcess
 
     if ($thumper -and -not $narrator) {
-        Start-Process -FilePath $startCmd -WindowStyle Hidden
+        # Headless console for the same reason as the watcher itself (see
+        # Install-AutoStart.ps1): -WindowStyle Hidden is ignored when Windows Terminal is
+        # the default console, and a visible narrator window can be closed by accident.
+        Start-Process -FilePath "conhost.exe" -ArgumentList "--headless", "`"$startCmd`"" -WindowStyle Hidden
     } elseif (-not $thumper -and $narrator) {
         # Thumper closed - nothing left for the narrator to read, and leaving it running
         # would mean it never actually stops until the player notices and closes it by hand.
