@@ -148,9 +148,9 @@ all of your Steam library folders. If your copy of Thumper is somewhere unusual:
    that contains `THUMPER_win8.exe`.
 3. Restart the narrator.
 
-**Still stuck?** Open an issue on the
-[project's GitHub page](https://github.com/ChrisTavar2022/ThumperAccess/issues), describe
-what happened, and include the end of `logs\speech.log` if you can.
+**Still stuck?** Message **nion_light0972** on Discord, describe what happened, and
+include the end of `logs\speech.log` if you can. You can also open an issue on the
+[project's GitHub page](https://github.com/ChrisTavar2022/ThumperAccess/issues).
 
 ## Uninstalling
 
