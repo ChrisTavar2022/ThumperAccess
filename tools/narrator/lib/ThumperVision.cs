@@ -14,8 +14,10 @@ public class ThumperVision {
     [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
     [DllImport("user32.dll")] public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint pid);
 
-    // Hotkey presses (the update installer's F1-F12) should only count while the game is
-    // actually in front, so the narrator does not react to a key press in some other app.
+    // True while the game is the foreground window. The main loop only reads the screen
+    // then (so a video of Thumper in another window is not narrated), and hotkey presses
+    // (the update installer's F1-F12) only count then, so a key press in another app is
+    // ignored.
     public static bool ThumperFocused() {
         uint pid;
         GetWindowThreadProcessId(GetForegroundWindow(), out pid);

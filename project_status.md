@@ -3,7 +3,15 @@
 Current state and next steps. The full history - methods, measurements, negative results,
 and why each design decision was made - is in the dated files in `notes/`, newest first.
 
-## Current state (2026-09-29): v1.0.1.1 released publicly
+## Current state (2026-10-04): v1.0.2 ready to publish
+
+v1.0.2: the narrator only reads the screen while Thumper is the foreground window, so a
+video of the game in another window is no longer narrated (tested live by the user
+against a YouTube video of the game with the mod running). Section results stay live
+while unfocused, since they come from the save file. The Ghidra workspace is no longer
+kept locally; `research/ghidra/README.md` explains how to rebuild it for Phase 2.
+
+### Earlier: v1.0.1.1 released publicly (2026-09-29)
 
 The repo is public. v1.0.0 was published 2026-09-28; v1.0.1
 (https://github.com/ChrisTavar2022/ThumperAccess/releases/tag/v1.0.1) followed on

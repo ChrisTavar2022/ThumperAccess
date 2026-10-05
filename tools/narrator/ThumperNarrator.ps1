@@ -69,6 +69,7 @@ Test-AutoStartTask
 # to be compared against (see Announce-SectionResults).
 Update-LevelData
 $saveCheckAt = Get-Date
+$wasFocused = $true
 
 while ($true) {
     $shot = $null
@@ -79,7 +80,21 @@ while ($true) {
             $saveCheckAt = Get-Date
             Update-LevelData
         }
-        $shot = [ThumperVision]::Grab($vs.X, $vs.Y, $vs.Width, $vs.Height)
+
+        # Only read the screen while the game is the foreground window. Otherwise anything
+        # that looks like Thumper - a video of someone playing it, say - gets narrated as if
+        # it were the real game. Forgetting the selection means the current item and screen
+        # are announced again on switching back. Section results above stay live: they come
+        # from the game's own save file, so they are always real.
+        if (-not [ThumperVision]::ThumperFocused()) {
+            if ($wasFocused) { Reset-Selection }
+            $wasFocused = $false
+            Start-Sleep -Milliseconds $PollMs   # `continue` skips the sleep at the bottom
+            continue
+        }
+        $wasFocused = $true
+
+        $shot =[ThumperVision]::Grab($vs.X, $vs.Y, $vs.Width, $vs.Height)
 
         # Which selection widget is on screen decides everything below. Both are checked on
         # every poll: the "Restart from checkpoint?" screen has a real gold-outlined,
