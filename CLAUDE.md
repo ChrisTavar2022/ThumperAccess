@@ -212,3 +212,5 @@ genuinely cannot help: it needs upcoming obstacle/track data mid-gameplay, not m
   tooling (see "Distribution" above)
 - `dev/input/`, `dev/capture/` - Driving and screenshotting the game while testing
 - `research/ghidra_scripts/`, `research/scan/MemScan.ps1` - Phase 2 reverse-engineering tooling
+- `research/ghidra/README.md` - What Ghidra material is (and is never) committed, and how to
+  rebuild the local Ghidra workspace for Phase 2

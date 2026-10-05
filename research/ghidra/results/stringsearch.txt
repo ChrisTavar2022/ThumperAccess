@@ -1,0 +1,1067 @@
+=== Menu-label string search ===
+---
+Address: 1401c3130  String: "regex_error(error_backref): The expression contained an invalid back reference."
+  (no references found)
+---
+Address: 1401c3410  String: "regex_error(error_complexity): The complexity of an attempted match against a regular expression exceeded a pre-set level."
+  (no references found)
+---
+Address: 1401c3870  String: "Unable to load LibOVRRT DLL"
+  (no references found)
+---
+Address: 1401c3b58  String: "ovr_GetPredictedDisplayTime"
+  (no references found)
+---
+Address: 1401c3cb0  String: "ovr_CreateMirrorTextureWithOptionsGL"
+  (no references found)
+---
+Address: 1401c3ff0  String: "ovr_CreateMirrorTextureWithOptionsDX"
+  (no references found)
+---
+Address: 1401c4058  String: "ovr_GetAudioDeviceOutWaveId"
+  (no references found)
+---
+Address: 1401c4078  String: "ovr_GetAudioDeviceInWaveId"
+  (no references found)
+---
+Address: 1401c4098  String: "ovr_GetAudioDeviceOutGuidStr"
+  (no references found)
+---
+Address: 1401c40b8  String: "ovr_GetAudioDeviceOutGuid"
+  (no references found)
+---
+Address: 1401c40d8  String: "ovr_GetAudioDeviceInGuidStr"
+  (no references found)
+---
+Address: 1401c40f8  String: "ovr_GetAudioDeviceInGuid"
+  (no references found)
+---
+Address: 1401c41d8  String: "ovr_CreateMirrorTextureWithOptionsVk"
+  (no references found)
+---
+Address: 1401c4320  String: "(Unable to load LibOVR)"
+  (no references found)
+---
+Address: 1401c4df8  String: "`dynamic atexit destructor for '"
+  xref from: 1401c48c0  in function: (no function)
+---
+Address: 1401c5748  String: "CorExitProcess"
+  (no references found)
+---
+Address: 1401cf4d8  String: "option_quick_restart"
+  (no references found)
+---
+Address: 1401cf568  String: "loading"
+  (no references found)
+---
+Address: 1401d3f30  String: "kGameLayerMenu"
+  (no references found)
+---
+Address: 1401d4208  String: "Could not load locale file %s"
+  (no references found)
+---
+Address: 1401d43c0  String: "ui/thumper.en.credits"
+  (no references found)
+---
+Address: 1401d4748  String: "Loading"
+  (no references found)
+---
+Address: 1401d47b0  String: "IVRSettings_002"
+  xref from: 1401cf8d8  in function: (no function)
+  xref from: 1401d0050  in function: (no function)
+  xref from: 1401d05a8  in function: (no function)
+---
+Address: 1401d4830  String: "IVRExtendedDisplay_001"
+  xref from: 1401cf8a8  in function: (no function)
+  xref from: 1401d0020  in function: (no function)
+  xref from: 1401d0578  in function: (no function)
+---
+Address: 1401d4a00  String: "%s can't load %s ver %i (latest %i, min %i)"
+  (no references found)
+---
+Address: 1401d4cc8  String: "%s pool allocator resorting to backing allocator (%i elements)"
+  (no references found)
+---
+Address: 1401d5240  String: "%s: couldn't load module %s (%s) with path '%s'"
+  (no references found)
+---
+Address: 1401d60c0  String: "Backspace"
+  (no references found)
+---
+Address: 1401d6208  String: "Could not load %s
+  (no references found)
+---
+Address: 1401d6614  String: "START"
+  (no references found)
+---
+Address: 1401d67b4  String: "Start"
+  xref from: 140254ec0  in function: (no function)
+  xref from: 140254f40  in function: (no function)
+  xref from: 140255040  in function: (no function)
+---
+Address: 1401d67c8  String: "Options"
+  xref from: 140254fc0  in function: (no function)
+---
+Address: 1401d67d0  String: "input_button_back"
+  xref from: 140254fc8  in function: (no function)
+---
+Address: 1401d6d68  String: "LevelStartedEvent"
+  (no references found)
+---
+Address: 1401d6ed8  String: "kLevelStartedOut"
+  (no references found)
+---
+Address: 1401d6ef0  String: "kLevelStartedNumOuts"
+  (no references found)
+---
+Address: 1401d6f08  String: "kLevelStartedIn"
+  (no references found)
+---
+Address: 1401d6f18  String: "Could not find LevelStartedEvent value %i"
+  (no references found)
+---
+Address: 1401d6fb0  String: "LevelStarted"
+  (no references found)
+---
+Address: 1401d9b40  String: "kAnimationStarted"
+  (no references found)
+---
+Address: 1401d9b58  String: "kAnimationPlaying"
+  (no references found)
+---
+Address: 1401d9c40  String: "kAnimationPlay"
+  (no references found)
+---
+Address: 1401d9c50  String: "kAnimationPlayDestination"
+  (no references found)
+---
+Address: 1401d9c70  String: "kAnimationPlayAbsolute"
+  (no references found)
+---
+Address: 1401db2b8  String: "kVibratePlayed"
+  (no references found)
+---
+Address: 1401db358  String: "kVibratePlay"
+  (no references found)
+---
+Address: 1401db3a0  String: "Can't load node ver %i (latest %i, min %i)"
+  (no references found)
+---
+Address: 1401db3d0  String: "kSpawnEffectStarted"
+  (no references found)
+---
+Address: 1401db3e8  String: "kSpawnEffectPlaying"
+  (no references found)
+---
+Address: 1401dd7a0  String: "kNextResetOnStart"
+  (no references found)
+---
+Address: 1401dd858  String: "kRelayStartEnabled"
+  (no references found)
+---
+Address: 1401de7b8  String: "kCounterResetOnStart"
+  (no references found)
+---
+Address: 1401e0828  String: "kBlendAnimStarted"
+  (no references found)
+---
+Address: 1401e0980  String: "kBlendTraitStarted"
+  (no references found)
+---
+Address: 1401e12d8  String: "Frame allocator resorting to backing allocator (%i)"
+  (no references found)
+---
+Address: 1401e1310  String: "Stack allocator resorting to backing allocator (%i)"
+  (no references found)
+---
+Address: 1401e14b8  String: "%s: could not load %s"
+  (no references found)
+---
+Address: 1401e1730  String: "VrPlayspace"
+  (no references found)
+---
+Address: 1401e1870  String: "VrSettings"
+  (no references found)
+---
+Address: 1401e18a0  String: "playspace"
+  (no references found)
+---
+Address: 1401e1988  String: "MsaaLevel"
+  (no references found)
+---
+Address: 1401e1c40  String: "NUM_MSAA_LEVELS"
+  (no references found)
+---
+Address: 1401e1c50  String: "Could not find MsaaLevel value %i"
+  (no references found)
+---
+Address: 1401e1c80  String: "Unable to set display resolution to %ix%i, resorting to initial (%ix%i)"
+  (no references found)
+---
+Address: 1401e1d10  String: "Failed to detect display modes (0x%x) for output %i"
+  (no references found)
+---
+Address: 1401e1d48  String: "Failed to get display modes (0x%x)"
+  (no references found)
+---
+Address: 1401e2330  String: "vr_settings"
+  (no references found)
+---
+Address: 1401e27c0  String: "Failure loading DX11 DDS (0x%x)"
+  (no references found)
+---
+Address: 1401e2990  String: "Failure loading DX11 cubemap DDS (0x%x)"
+  (no references found)
+---
+Address: 1401e3798  String: "LEVELS_ENABLED"
+  (no references found)
+---
+Address: 1401e37c0  String: "LEVELS_CHANNEL_GAMMA"
+  (no references found)
+---
+Address: 1401e37d8  String: "LEVELS_CHANNEL_RANGE"
+  (no references found)
+---
+Address: 1401e37f0  String: "LEVELS_TOTAL_RANGE"
+  (no references found)
+---
+Address: 1401e3808  String: "LEVELS_CHANNEL_OUTPUT"
+  (no references found)
+---
+Address: 1401e3820  String: "LEVELS_TOTAL_OUTPUT"
+  (no references found)
+---
+Address: 1401e3838  String: "LEVELS_TOTAL_GAMMA"
+  (no references found)
+---
+Address: 1401e3c5c  String: "levels"
+  (no references found)
+---
+Address: 1401e3c68  String: "PPLevels"
+  (no references found)
+---
+Address: 1401e5dc0  String: "Error initializing audio output device. Check your playback device settings."
+  (no references found)
+---
+Address: 1401e6348  String: "stop_on_exit"
+  (no references found)
+---
+Address: 1401e6368  String: "SamplePlayMode"
+  (no references found)
+---
+Address: 1401e63c8  String: "%s pause/resume, but not dynamic mode"
+  (no references found)
+---
+Address: 1401e63f0  String: "Could not find SamplePlayMode value %i"
+  (no references found)
+---
+Address: 1401e6458  String: "play_clean"
+  (no references found)
+---
+Address: 1401e6478  String: "resume"
+  (no references found)
+---
+Address: 1401e6680  String: "feedback_pct"
+  (no references found)
+---
+Address: 1401e66a0  String: "wetlevel_db"
+  (no references found)
+---
+Address: 1401e66b0  String: "drylevel_db"
+  (no references found)
+---
+Address: 1401e6720  String: "level"
+  (no references found)
+---
+Address: 1401e6a08  String: "dry_level_db"
+  (no references found)
+---
+Address: 1401e6a18  String: "wet_level_db"
+  (no references found)
+---
+Address: 1401e7550  String: "kSoundPlayed"
+  (no references found)
+---
+Address: 1401e75b0  String: "kSoundPlay"
+  (no references found)
+---
+Address: 1401e7800  String: "ui_loading"
+  (no references found)
+---
+Address: 1401e7838  String: "auto_load"
+  (no references found)
+---
+Address: 1401e7fc0  String: "start"
+  (no references found)
+---
+Address: 1401e80d0  String: "JOYPAD_ICON_START"
+  (no references found)
+---
+Address: 1401e81a0  String: "JOYPAD_ICON_PRIMARY_GAMEPLAY"
+  (no references found)
+---
+Address: 1401e8420  String: "start_xbox"
+  (no references found)
+---
+Address: 1401e8468  String: "back_xbox"
+  (no references found)
+---
+Address: 1401e84f8  String: "start_ps4"
+  (no references found)
+---
+Address: 1401e8568  String: "start_oculus"
+  (no references found)
+---
+Address: 1401e85b8  String: "back_oculus"
+  (no references found)
+---
+Address: 1401e8620  String: "back_vive"
+  (no references found)
+---
+Address: 1401e8648  String: "start_vive"
+  (no references found)
+---
+Address: 1401e8698  String: "start_nx"
+  (no references found)
+---
+Address: 1401e8750  String: "back_touch"
+  (no references found)
+---
+Address: 1401e8780  String: "start_touch"
+  (no references found)
+---
+Address: 1401e8810  String: "start_yeti"
+  (no references found)
+---
+Address: 1401e8820  String: "back_yeti"
+  (no references found)
+---
+Address: 1401e8b58  String: "LoadStateEvent"
+  (no references found)
+---
+Address: 1401e8ba0  String: "UIStartEvent"
+  (no references found)
+---
+Address: 1401e8c40  String: "kGotoStateGoBack"
+  (no references found)
+---
+Address: 1401e8c78  String: "kLoadStateNumOuts"
+  (no references found)
+---
+Address: 1401e8c90  String: "kLoadStatePreUIState"
+  (no references found)
+---
+Address: 1401e8cd0  String: "kLoadStateOut"
+  (no references found)
+---
+Address: 1401e8ce0  String: "kLoadStateStartLoad"
+  (no references found)
+---
+Address: 1401e8cf8  String: "Could not find LoadStateEvent value %i"
+  (no references found)
+---
+Address: 1401e8d20  String: "kLoadStateUIState"
+  (no references found)
+---
+Address: 1401e8d38  String: "kLoadStateWorldState"
+  (no references found)
+---
+Address: 1401e8e08  String: "kUIControllerShowOptions"
+  (no references found)
+---
+Address: 1401e8e58  String: "kUIControllerStart"
+  (no references found)
+---
+Address: 1401e8eb8  String: "kUIControllerExit"
+  (no references found)
+---
+Address: 1401e9160  String: "kUIStartPrevious"
+  (no references found)
+---
+Address: 1401e9178  String: "kUIStartCurrent"
+  (no references found)
+---
+Address: 1401e91d8  String: "kUIStartIn"
+  (no references found)
+---
+Address: 1401e91e8  String: "Could not find UIStartEvent value %i"
+  (no references found)
+---
+Address: 1401e9210  String: "kUIStartStarted"
+  (no references found)
+---
+Address: 1401e9220  String: "kUIStartNumOuts"
+  (no references found)
+---
+Address: 1401e9448  String: "LoadState"
+  (no references found)
+---
+Address: 1401e9458  String: "UIStart"
+  (no references found)
+---
+Address: 1401e9ee0  String: "ui_go_back_end"
+  (no references found)
+---
+Address: 1401e9ef0  String: "ui_go_back_start"
+  (no references found)
+---
+Address: 1401e9f38  String: "ui_select_start"
+  (no references found)
+---
+Address: 1401ea2a0  String: "release_start_frame"
+  (no references found)
+---
+Address: 1401ea308  String: "GameplayMode"
+  (no references found)
+---
+Address: 1401ea3e4  String: "level1"
+  (no references found)
+---
+Address: 1401ea3f0  String: "NUM_GAMEPLAY_MODES"
+  (no references found)
+---
+Address: 1401ea408  String: "Could not find GameplayMode value %i"
+  (no references found)
+---
+Address: 1401ea438  String: "level_select_unlocked"
+  (no references found)
+---
+Address: 1401ea450  String: "settings"
+  (no references found)
+---
+Address: 1401ea460  String: "GameSettings"
+  (no references found)
+---
+Address: 1401ea4b0  String: "ui/thumper.levels"
+  (no references found)
+---
+Address: 1401ea4d0  String: "hud_level_final"
+  (no references found)
+---
+Address: 1401ea4e0  String: "hud_level"
+  (no references found)
+---
+Address: 1401ea508  String: "hud_level_final_pyramid"
+  (no references found)
+---
+Address: 1401ea638  String: "PathGameplay"
+  (no references found)
+---
+Address: 1401ea6f0  String: "main_menu"
+  (no references found)
+---
+Address: 1401ea700  String: "start.flow"
+  (no references found)
+---
+Address: 1401ea728  String: "save_local"
+  (no references found)
+---
+Address: 1401ea738  String: "save_cloud"
+  (no references found)
+---
+Address: 1401ea878  String: "options"
+  (no references found)
+---
+Address: 1401ea8d0  String: "level_select"
+  (no references found)
+---
+Address: 1401ea908  String: "Credits"
+  (no references found)
+---
+Address: 1401ea960  String: "credits_song.samp"
+  (no references found)
+---
+Address: 1401ea988  String: "Could not load %s"
+  (no references found)
+---
+Address: 1401ea9a0  String: "credits"
+  (no references found)
+---
+Address: 1401ea9e0  String: "level_restart"
+  (no references found)
+---
+Address: 1401eaa10  String: "continue"
+  (no references found)
+---
+Address: 1401eab00  String: "level.txt"
+  (no references found)
+---
+Address: 1401eab10  String: "level_nav_selected.mat"
+  (no references found)
+---
+Address: 1401eab48  String: "level.icon"
+  (no references found)
+---
+Address: 1401eab80  String: "level_nav_normal.mat"
+  (no references found)
+---
+Address: 1401eaba0  String: "level_nav_locked.mat"
+  (no references found)
+---
+Address: 1401eabd0  String: "pause_restart_checkpoint"
+  (no references found)
+---
+Address: 1401eac00  String: "pause_resume"
+  (no references found)
+---
+Address: 1401eac10  String: "level_exit"
+  (no references found)
+---
+Address: 1401eac20  String: "option_exit"
+  (no references found)
+---
+Address: 1401eac30  String: "pause_restart"
+  (no references found)
+---
+Address: 1401eac40  String: "pause_quit"
+  (no references found)
+---
+Address: 1401eaf68  String: "level_select_start"
+  (no references found)
+---
+Address: 1401eaf80  String: "pause_restart_checkpoint_prompt"
+  (no references found)
+---
+Address: 1401eafa0  String: "level_select_restart"
+  (no references found)
+---
+Address: 1401eaff0  String: "options.flow"
+  (no references found)
+---
+Address: 1401eb010  String: "practice_locked_for_level"
+  (no references found)
+---
+Address: 1401eb050  String: "option_controls"
+  (no references found)
+---
+Address: 1401eb200  String: "option_audio"
+  (no references found)
+---
+Address: 1401eb210  String: "option_credits"
+  (no references found)
+---
+Address: 1401eb220  String: "option_video"
+  (no references found)
+---
+Address: 1401eb230  String: "option_gameplay"
+  (no references found)
+---
+Address: 1401eb338  String: "pause_restart_prompt"
+  (no references found)
+---
+Address: 1401eb380  String: "restart_checkpoint"
+  (no references found)
+---
+Address: 1401eb398  String: "pause_quit_prompt"
+  (no references found)
+---
+Address: 1401eb3d0  String: "play_plus_locked"
+  (no references found)
+---
+Address: 1401eb418  String: "exit_prompt"
+  (no references found)
+---
+Address: 1401eb430  String: "restart_checkpoint_previous"
+  (no references found)
+---
+Address: 1401eb488  String: "level.anim"
+  (no references found)
+---
+Address: 1401eb4c8  String: "level.results"
+  (no references found)
+---
+Address: 1401eb508  String: "leaderboard_upload_score"
+  (no references found)
+---
+Address: 1401eb530  String: "upload_status.txt"
+  (no references found)
+---
+Address: 1401eb548  String: "Start Song"
+  (no references found)
+---
+Address: 1401eb558  String: "leaderboard_upload_failure"
+  (no references found)
+---
+Address: 1401eb580  String: "leaderboard_cancel_upload"
+  (no references found)
+---
+Address: 1401eb5b0  String: "play_plus"
+  (no references found)
+---
+Address: 1401eb6b0  String: "menu_path_colors.flow"
+  (no references found)
+---
+Address: 1401eb718  String: "AutoLoadScreen"
+  (no references found)
+---
+Address: 1401eb728  String: "CreditsScreen"
+  (no references found)
+---
+Address: 1401eb748  String: "Background Fade"
+  (no references found)
+---
+Address: 1401eb7b8  String: "OptionsScreen"
+  (no references found)
+---
+Address: 1401eb7d8  String: "LevelSelectScreen"
+  (no references found)
+---
+Address: 1401eb7f0  String: "MainMenuScreen"
+  (no references found)
+---
+Address: 1401eb810  String: "LoadingScreen"
+  (no references found)
+---
+Address: 1401eb830  String: "TitleBackground"
+  (no references found)
+---
+Address: 1401eb840  String: "UILoadingScreen"
+  (no references found)
+---
+Address: 1401ec1e8  String: "beat=%i layer=%i lane=%i is not within start/end lanes (%i/%i)"
+  (no references found)
+---
+Address: 1401ec438  String: "LevelRandom"
+  (no references found)
+---
+Address: 1401ec448  String: "LEVEL_RANDOM_BUCKET"
+  (no references found)
+---
+Address: 1401ec460  String: "LEVEL_RANDOM_PURE"
+  (no references found)
+---
+Address: 1401ec478  String: "LEVEL_RANDOM_NONE"
+  (no references found)
+---
+Address: 1401ec4c8  String: "NUM_LEVEL_RANDOMS"
+  (no references found)
+---
+Address: 1401ec4e0  String: "Could not find LevelRandom value %i"
+  (no references found)
+---
+Address: 1401ec668  String: "lane_switch_start"
+  (no references found)
+---
+Address: 1401ec6a0  String: "move_start"
+  (no references found)
+---
+Address: 1401ec750  String: "pound_start"
+  (no references found)
+---
+Address: 1401ec770  String: "grind_start"
+  (no references found)
+---
+Address: 1401ec7c0  String: "scrape_turn_start"
+  (no references found)
+---
+Address: 1401ec7e8  String: "pulse_phrase_start"
+  (no references found)
+---
+Address: 1401ec810  String: "gate_level_activated"
+  (no references found)
+---
+Address: 1401ec868  String: "kStateAtStart"
+  (no references found)
+---
+Address: 1401ec898  String: "kStatePlaying"
+  (no references found)
+---
+Address: 1401ecd98  String: "Resume data (%i) doesn't match level (%i)"
+  (no references found)
+---
+Address: 1401ecf00  String: "start_power"
+  (no references found)
+---
+Address: 1401ecf70  String: "Gameplay"
+  (no references found)
+---
+Address: 1401ed940  String: "jump_start"
+  (no references found)
+---
+Address: 1401edb88  String: "LevelLib"
+  (no references found)
+---
+Address: 1401edb98  String: "level_start"
+  (no references found)
+---
+Address: 1401edbc0  String: "LevelControl"
+  (no references found)
+---
+Address: 1401ee280  String: "kSequinBarrierLeftStart"
+  (no references found)
+---
+Address: 1401ee3d0  String: "kSequinBarrierRightStart"
+  (no references found)
+---
+Address: 1401ee468  String: "kSequinPhraseStart"
+  (no references found)
+---
+Address: 1401ee610  String: "SequinLevel"
+  (no references found)
+---
+Address: 1401eeb90  String: "rails_start"
+  (no references found)
+---
+Address: 1401ef470  String: "flutter_start"
+  (no references found)
+---
+Address: 1401ef490  String: "fall_start"
+  (no references found)
+---
+Address: 1401ef718  String: "barrier_scrape_level"
+  (no references found)
+---
+Address: 1401ef730  String: "rails_scrape_level"
+  (no references found)
+---
+Address: 1401efab0  String: "PlayerPowerEvent"
+  (no references found)
+---
+Address: 1401efad8  String: "NewLevelEvent"
+  (no references found)
+---
+Address: 1401efea8  String: "kFirePulseStartBeat"
+  (no references found)
+---
+Address: 1401f0008  String: "kNewLevelReached"
+  (no references found)
+---
+Address: 1401f0020  String: "kNewLevelBeatsRemaining"
+  (no references found)
+---
+Address: 1401f0038  String: "kNewLevelLevelRepetition"
+  (no references found)
+---
+Address: 1401f0058  String: "kNewLevelTutorialType"
+  (no references found)
+---
+Address: 1401f0070  String: "Could not find NewLevelEvent value %i"
+  (no references found)
+---
+Address: 1401f00a8  String: "kNewLevelNumOuts"
+  (no references found)
+---
+Address: 1401f00c0  String: "kNewLevelBeatOffset"
+  (no references found)
+---
+Address: 1401f0158  String: "kPlayerPowerNumOuts"
+  (no references found)
+---
+Address: 1401f0198  String: "Could not find PlayerPowerEvent value %i"
+  (no references found)
+---
+Address: 1401f01d8  String: "kPlayerPowerDamageType"
+  (no references found)
+---
+Address: 1401f01f0  String: "kPlayerPowerTakeDamage"
+  (no references found)
+---
+Address: 1401f0728  String: "PlayerPower"
+  (no references found)
+---
+Address: 1401f0748  String: "NewLevel"
+  (no references found)
+---
+Address: 1401f21a0  String: "GateLevelEvent"
+  (no references found)
+---
+Address: 1401f2220  String: "kGateEventLevelReached"
+  (no references found)
+---
+Address: 1401f2238  String: "kGateLevelOut"
+  (no references found)
+---
+Address: 1401f2248  String: "kGateLevelNumOuts"
+  (no references found)
+---
+Address: 1401f22a0  String: "Could not find GateLevelEvent value %i"
+  (no references found)
+---
+Address: 1401f22d8  String: "kGateLevelName"
+  (no references found)
+---
+Address: 1401f22e8  String: "kGateLevelActivate"
+  (no references found)
+---
+Address: 1401f23c8  String: "GateLevel"
+  (no references found)
+---
+Address: 1401f40d0  String: "kEntityThumpPoundHitStarted"
+  (no references found)
+---
+Address: 1401f46f0  String: "hud_level_boss"
+  (no references found)
+---
+Address: 1401f4720  String: "hud_level_final_boss"
+  (no references found)
+---
+Address: 1401f4958  String: "kStepGameplay"
+  (no references found)
+---
+Address: 1401f4c20  String: "savedata/%llu/data"
+  (no references found)
+---
+Address: 1401f4c40  String: "save_data"
+  (no references found)
+---
+Address: 1401f4c50  String: "Failed to write save data to disk (%s)"
+  (no references found)
+---
+Address: 1401f4c80  String: "save file"
+  (no references found)
+---
+Address: 1401f4ca0  String: "The last autosave did not complete successfully.
+  (no references found)
+---
+Address: 1401f4d48  String: "AutoSave on slot %i is already active"
+  (no references found)
+---
+Address: 140251c98  String: "SDL_Quit"
+  (no references found)
+---
+Address: 14025273c  String: "?playSound@System@FMOD@@QEAA?AW4FMOD_RESULT@@PEAVSound@2@PEAVChannelGroup@2@_NPEAPEAVChannel@2@@Z"
+  (no references found)
+---
+Address: 140252880  String: "?isPlaying@ChannelControl@FMOD@@QEAA?AW4FMOD_RESULT@@PEA_N@Z"
+  (no references found)
+---
+Address: 140252baa  String: "SteamAPI_RestartAppIfNecessary"
+  (no references found)
+---
+Address: 140252bf0  String: "SteamAPI_RunCallbacks"
+  (no references found)
+---
+Address: 140252d66  String: "LoadLibraryA"
+  (no references found)
+---
+Address: 140252f6c  String: "GetStartupInfoW"
+  (no references found)
+---
+Address: 140252fae  String: "LoadLibraryW"
+  (no references found)
+---
+Address: 14025305c  String: "LoadLibraryExW"
+  (no references found)
+---
+Address: 14025310a  String: "ExitProcess"
+  (no references found)
+---
+Address: 14025313e  String: "ExitThread"
+  (no references found)
+---
+Address: 14025314c  String: "ResumeThread"
+  (no references found)
+---
+Address: 14025315c  String: "FreeLibraryAndExitThread"
+  (no references found)
+---
+Address: 140253530  String: "LoadIconA"
+  (no references found)
+---
+Address: 140253676  String: "ChangeDisplaySettingsA"
+  (no references found)
+---
+Address: 1402536d2  String: "PostQuitMessage"
+  (no references found)
+---
+Address: 140255960  String: ".?AV?$CCallResult@UDownloadTask@leaderboard@@ULeaderboardScoresDownloaded_t@@@@"
+  (no references found)
+---
+Address: 1402559c0  String: ".?AV?$CCallResult@UDownloadTask@leaderboard@@ULeaderboardFindResult_t@@@@"
+  (no references found)
+---
+Address: 140255a20  String: ".?AV?$CCallResult@UUploadTask@leaderboard@@ULeaderboardScoreUploaded_t@@@@"
+  (no references found)
+---
+Address: 140255a80  String: ".?AV?$CCallResult@UUploadTask@leaderboard@@ULeaderboardFindResult_t@@@@"
+  (no references found)
+---
+Address: 140255ad8  String: ".?AVCCallbackBase@@"
+  (no references found)
+---
+Address: 1402563e0  String: ".?AV?$FlowTaskCallback@$00$01$02@flow@@"
+  (no references found)
+---
+Address: 140256418  String: ".?AVCallback@task_stream@@"
+  (no references found)
+---
+Address: 1402564e0  String: ".?AV?$NodeInfoNotShared@ULevelStarted@flow@@@flow@@"
+  (no references found)
+---
+Address: 140256528  String: ".?AV?$NodeInfoBase@ULevelStarted@flow@@@flow@@"
+  (no references found)
+---
+Address: 140256568  String: ".?AVLevelStartedInfo@@"
+  (no references found)
+---
+Address: 140256670  String: ".?AVEnumLookupLevelStartedEvent@flow@@"
+  (no references found)
+---
+Address: 14025ba28  String: ".?AVVrSettings@@"
+  (no references found)
+---
+Address: 14025ba50  String: ".?AVVrPlayspace@@"
+  (no references found)
+---
+Address: 14025ba78  String: ".?AV?$ObjRefPtr@VPlayspace@vr@gfx@@@@"
+  (no references found)
+---
+Address: 14025bbf8  String: ".?AVEnumLookupMsaaLevel@gfx@@"
+  (no references found)
+---
+Address: 14025bd90  String: ".?AV?$ObjRefPtr@VSettings@vr@gfx@@@@"
+  (no references found)
+---
+Address: 14025beb8  String: ".?AVEffectPlayer@@"
+  (no references found)
+---
+Address: 14025d068  String: ".?AVEnumLookupSamplePlayMode@@"
+  (no references found)
+---
+Address: 14025d698  String: ".?AVUIWorldBackgroundState@@"
+  (no references found)
+---
+Address: 14025d6f0  String: ".?AVEnumLookupLayoutUnit@ui@@"
+  (no references found)
+---
+Address: 14025dd90  String: ".?AV?$NodeInfoBase@UUIStart@flow@@@flow@@"
+  (no references found)
+---
+Address: 14025ddd0  String: ".?AV?$NodeInfoNotShared@UUIStart@flow@@@flow@@"
+  (no references found)
+---
+Address: 14025de58  String: ".?AVUIStartInfo@@"
+  (no references found)
+---
+Address: 14025e190  String: ".?AV?$NodeInfoNotShared@ULoadState@flow@@@flow@@"
+  (no references found)
+---
+Address: 14025e200  String: ".?AVLoadStateInfo@@"
+  (no references found)
+---
+Address: 14025e228  String: ".?AV?$NodeInfoBase@ULoadState@flow@@@flow@@"
+  (no references found)
+---
+Address: 14025e3c8  String: ".?AVEnumLookupUIStartEvent@flow@@"
+  (no references found)
+---
+Address: 14025e478  String: ".?AVEnumLookupLoadStateEvent@flow@@"
+  (no references found)
+---
+Address: 14025e698  String: ".?AVGameSettings@@"
+  (no references found)
+---
+Address: 14025e730  String: ".?AVEnumLookupGameplayMode@settings@@"
+  (no references found)
+---
+Address: 14025e790  String: ".?AVLevelLib@@"
+  (no references found)
+---
+Address: 14025e7b0  String: ".?AVLoadingScreen@@"
+  (no references found)
+---
+Address: 14025e7d8  String: ".?AVUILoadingScreen@@"
+  (no references found)
+---
+Address: 14025e800  String: ".?AVMainMenuScreen@@"
+  (no references found)
+---
+Address: 14025e828  String: ".?AVTitleBackground@@"
+  (no references found)
+---
+Address: 14025e878  String: ".?AVAutoLoadScreen@@"
+  (no references found)
+---
+Address: 14025e8a0  String: ".?AVOptionsScreen@@"
+  (no references found)
+---
+Address: 14025e920  String: ".?AVLevelSelectScreen@@"
+  (no references found)
+---
+Address: 14025ea28  String: ".?AVEnumLookupPlateLineType@credits@@"
+  (no references found)
+---
+Address: 14025ea60  String: ".?AVCreditsScreen@@"
+  (no references found)
+---
+Address: 14025eb58  String: ".?AVCredits@credits@@"
+  (no references found)
+---
+Address: 14025ed38  String: ".?AVPathGameplay@@"
+  (no references found)
+---
+Address: 14025ee20  String: ".?AV?$ObjRefPtr@VSequinLevel@@@@"
+  (no references found)
+---
+Address: 14025ee58  String: ".?AVEnumLookupLevelRandom@@"
+  (no references found)
+---
+Address: 14025ee88  String: ".?AVSequinLevel@@"
+  (no references found)
+---
+Address: 14025ef10  String: ".?AVGameplay@@"
+  (no references found)
+---
+Address: 14025f3a0  String: ".?AVLevelControl@@"
+  (no references found)
+---
+Address: 14025f3f8  String: ".?AVLevelTimeDrive@LevelLib@@"
+  (no references found)
+---
+Address: 14025f488  String: ".?AVLevelPollComp@LevelLib@@"
+  (no references found)
+---
+Address: 14025f680  String: ".?AVLevelAnimComp@SequinLevelImp@@"
+  (no references found)
+---
+Address: 14025f6e8  String: ".?AVSequinLevelImp@@"
+  (no references found)
+---
+Address: 14025f780  String: ".?AV?$ObjRefPtr@VPathGameplay@@@@"
+  (no references found)
+---
+Address: 14025f7c0  String: ".?AUIniter@?7??_NextLevel@@YAPEAVSequinLevel@@AEAUSection@@_NAEAUGateInstance@@@Z@"
+  (no references found)
+---
+Address: 1402606c0  String: ".?AV?$NodeInfoBase@UPlayerPower@flow@@@flow@@"
+  (no references found)
+---
+Address: 140260700  String: ".?AV?$NodeInfoNotShared@UPlayerPower@flow@@@flow@@"
+  (no references found)
+---
+Address: 140260798  String: ".?AVPlayerPowerInfo@@"
+  (no references found)
+---
+Address: 140260828  String: ".?AV?$NodeInfoBase@UNewLevel@flow@@@flow@@"
+  (no references found)
+---
+Address: 140260870  String: ".?AV?$NodeInfoNotShared@UNewLevel@flow@@@flow@@"
+  (no references found)
+---
+Address: 1402608f8  String: ".?AVNewLevelInfo@@"
+  (no references found)
+---
+Address: 140260fa0  String: ".?AVEnumLookupPlayerPowerEvent@flow@@"
+  (no references found)
+---
+Address: 140261010  String: ".?AVEnumLookupNewLevelEvent@flow@@"
+  (no references found)
+---
+Address: 1402612b8  String: ".?AV?$NodeInfoShared@UGateLevel@flow@@@flow@@"
+  (no references found)
+---
+Address: 140261320  String: ".?AVGateLevelInfo@@"
+  (no references found)
+---
+Address: 140261348  String: ".?AV?$NodeInfoBase@UGateLevel@flow@@@flow@@"
+  (no references found)
+---
+Address: 140261478  String: ".?AVEnumLookupGateLevelEvent@flow@@"
+  (no references found)
+---
+Address: 1402625e8  String: ".?AVAnimPlayer@@"
+  (no references found)
+---
+Address: 1403e8540  String: "���<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  (no references found)
+=== Total matches: 353 ===

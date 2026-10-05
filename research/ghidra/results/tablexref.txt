@@ -1,0 +1,34 @@
+=== Scanning all initialized memory for stored pointers into 0x1401eb6d8-0x1401eb860 ===
+Scanning block: Headers  140000000 - 1400003ff
+Scanning block: .text  140001000 - 1401c03ff
+Scanning block: .rdata  1401c1000 - 1402537ff
+... scanned 2000000 addresses so far (matches so far: 0)
+Scanning block: .data  140254000 - 1402b41ef
+Scanning block: .pdata  1402b5000 - 1402d65ff
+Scanning block: .gfids  1402d7000 - 1402d71ff
+Scanning block: .tls  1402d8000 - 1402d81ff
+Scanning block: .rsrc  1402d9000 - 1403e87ff
+... scanned 4000000 addresses so far (matches so far: 0)
+Scanning block: .reloc  1403e9000 - 1403ef5ff
+Scanning block: .bind  1403f0000 - 140422187
+=== Total scanned: 4307822  Total matches: 0 ===
+=== Image base: 0x140000000 ===
+=== Pass 1: scanning for absolute 8-byte pointers into 0x1401eb6d8-0x1401eb860 ===
+=== Pass 2: scanning for 4-byte RVAs into 0x1eb6d8-0x1eb860 (relative to image base) ===
+Scanning block: Headers  140000000 - 1400003ff
+Scanning block: .text  140001000 - 1401c03ff
+Scanning block: .rdata  1401c1000 - 1402537ff
+... scanned 2000000 addresses so far (8-byte matches: 0, 4-byte RVA matches: 0)
+---
+4-byte RVA at: 14022e888  ->  0x1eb839 (-> VA 0x1401eb839)  (block: .rdata, no function/symbol)
+---
+4-byte RVA at: 14022e8bc  ->  0x1eb800 (-> VA 0x1401eb800)  (block: .rdata, no function/symbol)
+Scanning block: .data  140254000 - 1402b41ef
+Scanning block: .pdata  1402b5000 - 1402d65ff
+Scanning block: .gfids  1402d7000 - 1402d71ff
+Scanning block: .tls  1402d8000 - 1402d81ff
+Scanning block: .rsrc  1402d9000 - 1403e87ff
+... scanned 4000000 addresses so far (8-byte matches: 0, 4-byte RVA matches: 2)
+Scanning block: .reloc  1403e9000 - 1403ef5ff
+Scanning block: .bind  1403f0000 - 140422187
+=== Total scanned: 4307822  8-byte matches: 0  4-byte RVA matches: 2 ===

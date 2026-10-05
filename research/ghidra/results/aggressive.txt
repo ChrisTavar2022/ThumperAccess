@@ -1,0 +1,10 @@
+=== Analyzer options containing 'aggressive' (before) ===
+  Aggressive Instruction Finder = false
+  -> forced true
+  Aggressive Instruction Finder.Create Analysis Bookmarks = true
+  -> forced true
+=== Enabled 2 aggressive-related analyzer option(s) ===
+=== Re-running analysis (in-memory only, -readOnly so nothing is saved) ===
+=== Analysis complete in 137024 ms ===
+=== Re-checking references for 51 known strings ===
+=== Strings with at least one reference after re-analysis: 0 / 51 ===
